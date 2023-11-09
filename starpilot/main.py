@@ -20,7 +20,7 @@ GITHUB_CONNECTION = Github(git_hub_key)
 
 
 @app.command()
-def load():
+def load(search_term: str):
     """
     Load the stars
     """
@@ -29,14 +29,14 @@ def load():
         repo_descriptions = utils.get_repo_readmes(user_stars, GITHUB_CONNECTION)
         utils.save_readmes_to_disk(repo_descriptions, user_stars)
 
-        readme_splits = utils.prepare_github_readmes(path="./readmes/")
+    readme_splits = utils.prepare_github_readmes(path="./readmes/")
 
-        vectorstore = Chroma.from_documents(
-            documents=readme_splits,
-            embedding=GPT4AllEmbeddings(disallowed_special=()),
-        )
+    vectorstore = Chroma.from_documents(
+        documents=readme_splits,
+        embedding=GPT4AllEmbeddings(disallowed_special=()),
+    )
 
-    print(vectorstore.similarity_search("large language models"))
+    print(vectorstore.similarity_search(search_term))
 
 
 @app.command()
