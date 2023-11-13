@@ -96,6 +96,8 @@ def shoot(query: str):
 
 @app.command()
 def horoscope(question: str):
+    from langchain.chains import RetrievalQA
+
     retriever = Chroma(
         persist_directory=VECTORSTORE_PATH,
         embedding_function=GPT4AllEmbeddings(disallowed_special=()),
@@ -103,10 +105,8 @@ def horoscope(question: str):
         search_type="mmr",
         search_kwargs={"fetch_k": 3},
     )
-    
-    rag_prompt = hub.pull("rlm/rag-prompt")
 
-    model_path = "./models/mistral-7b-openorca.Q4_0.gguf"  # replace with your desired local file path
+    model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
 
     # Callbacks support token-wise streaming
     callbacks = [StreamingStdOutCallbackHandler()]
@@ -114,8 +114,11 @@ def horoscope(question: str):
     # Verbose is required to pass to the callback manager
     llm = GPT4All(model=model_path, callbacks=callbacks, verbose=True)
 
-    rag_chain = (
-        {"context": retriever, "question": RunnablePassthrough()} | rag_prompt | llm
+    with_sources_chain = RetrievalQA.from_chain_type(
+        llm, retriever=retriever, return_source_documents=True
     )
 
-    rag_chain.invoke(question)
+    response = with_sources_chain.invoke(question)
+
+    for source in response["source_documents"]:
+        print(source)
