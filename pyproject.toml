@@ -17,6 +17,7 @@ chromadb = "^0.4.15"
 pygithub = "^2.1.1"
 unstructured = "^0.10.29"
 markdown = "^3.5.1"
+langchainhub = "^0.1.13"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.1"
