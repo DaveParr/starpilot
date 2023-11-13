@@ -159,4 +159,11 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Temporary anything files
+tmp.**
+
+# Specific to the project
+
 /readmes
+/vectorstore-chroma
+
