@@ -70,7 +70,7 @@ def read(
         documents=readme_splits,
         embedding=GPT4AllEmbeddings(disallowed_special=()),
         persist_directory="./vectorstore-chroma",
-    )
+    ) # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
 
 @app.command()
@@ -112,13 +112,15 @@ def horoscope(question: str):
     callbacks = [StreamingStdOutCallbackHandler()]
 
     # Verbose is required to pass to the callback manager
-    llm = GPT4All(model=model_path, callbacks=callbacks, verbose=True)
+    llm = GPT4All(model=model_path, verbose=True)
 
     with_sources_chain = RetrievalQA.from_chain_type(
         llm, retriever=retriever, return_source_documents=True
     )
 
     response = with_sources_chain.invoke(question)
+
+    print(response["result"])
 
     for source in response["source_documents"]:
         print(source)

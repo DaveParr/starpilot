@@ -45,6 +45,8 @@ def save_readmes_to_disk(
         os.makedirs(directory)
     for i in range(len(readmes)):
         with open(f"{directory}/{repos[i].name}.md", "w") as f:
+            # FIXME: This assumes the list of readmes and repos are in the same order and the same length
+            # In fact django-allauth is labelled proton-ge-custom and analogsea is labelled sinew
             # IDEA: Treat `RST` with more care
             f.write(readmes[i])
 
