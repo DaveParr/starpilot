@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Optional, Dict
 import os
+import json
 from langchain.document_loaders import UnstructuredMarkdownLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from github.Repository import Repository
@@ -7,48 +8,56 @@ from github import Github, UnknownObjectException
 from langchain.schema.document import Document
 
 
-def get_user_stars(user: str, g: Github) -> List[Repository]:
+def get_user_stars(
+    user: str, g: Github, num_repos: Optional[int] = None
+) -> List[Repository]:
     starred_repos = []
     for repo in g.get_user(user).get_starred():
         starred_repos.append(repo)
+
+    # IDEAS: there could be a threshold for star count below which repos are removed
+    starred_repos.sort(key=lambda repo: repo.stargazers_count, reverse=True)
+
+    if num_repos is not None:
+        starred_repos = starred_repos[:num_repos]
+
     return starred_repos
 
 
-def get_repo_descriptions(repos: List[Repository], g: Github) -> List[Repository]:
-    descriptions = []
+def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
+    repo_contents = []
     for repo in repos:
-        description = repo.description
-        if description is not None:
-            descriptions.append(description)
-    return descriptions
-
-
-def get_repo_readmes(repos: List[Repository], g: Github) -> List[Repository]:
-    readmes = []
-    for repo in repos:
+        content = {}
+        content["name"] = repo.name
+        content["url"] = repo.html_url
+        content["description"] = repo.description
+        content["topics"] = repo.get_topics()
+        content["readme"] = {}
         try:
             readme = repo.get_contents("README.md")
+            content["readme"]["type"] = "md"
+            content["readme"]["content"] = readme.decoded_content.decode("utf-8")
         except UnknownObjectException:
             try:
                 readme = repo.get_contents("README.rst")
+                content["readme"]["type"] = "rst"
+                content["readme"]["content"] = readme.decoded_content.decode("utf-8")
             except UnknownObjectException:
-                readme = None
-        if readme is not None:
-            readmes.append(readme.decoded_content.decode("utf-8"))
-    return readmes
+                content["readme"]["type"] = None
+                content["readme"] = None
+        repo_contents.append(content)
+    return repo_contents
 
 
 def save_readmes_to_disk(
-    readmes: List[Repository], repos: List[Repository], directory: str = "./readmes"
+    repo_contents: List[Dict], directory: str = "./readmes"
 ) -> None:
     if not os.path.exists(directory):
         os.makedirs(directory)
-    for i in range(len(readmes)):
-        with open(f"{directory}/{repos[i].name}.md", "w") as f:
-            # FIXME: This assumes the list of readmes and repos are in the same order and the same length
-            # In fact django-allauth is labelled proton-ge-custom and analogsea is labelled sinew
-            # IDEA: Treat `RST` with more care
-            f.write(readmes[i])
+    for repo in repo_contents:
+        # write to json
+        with open(os.path.join(directory, repo["name"] + ".json"), "w") as f:
+            json.dump(repo, f)
 
 
 def prepare_github_readmes(path: str) -> List[Document]:

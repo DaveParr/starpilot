@@ -45,32 +45,37 @@ def read(
     if os.path.exists(readme_path):
         shutil.rmtree(readme_path)
 
-    print("Reading your stars...")
+    print("Spotting your stars...")
 
-    user_stars = utils.get_user_stars(user, GITHUB_CONNECTION)
+    user_stars = utils.get_user_stars(
+        user=user,
+        g=GITHUB_CONNECTION,
+        num_repos=num_repos,
+    )
 
-    user_stars.sort(key=lambda repo: repo.stargazers_count, reverse=True)
+    repo_contents = utils.get_repo_contents(
+        repos=user_stars,
+        g=GITHUB_CONNECTION,
+    )
 
-    user_stars = user_stars[:num_repos] if num_repos is not None else user_stars
+    print(f"Reading {len(repo_contents)} stars...")
 
-    repo_readmes = utils.get_repo_readmes(user_stars, GITHUB_CONNECTION)
+    print(repo_contents[0])
 
-    print(f"Mapping {len(repo_readmes)} stars...")
+    utils.save_readmes_to_disk(repo_contents)
 
-    utils.save_readmes_to_disk(repo_readmes, user_stars)
+    # readme_splits = utils.prepare_github_readmes(path=readme_path)
 
-    readme_splits = utils.prepare_github_readmes(path=readme_path)
+    # vectorstore_path = "./vectorstore-chroma"
 
-    vectorstore_path = "./vectorstore-chroma"
+    # if os.path.exists(vectorstore_path):
+    #     shutil.rmtree(vectorstore_path)
 
-    if os.path.exists(vectorstore_path):
-        shutil.rmtree(vectorstore_path)
-
-    Chroma.from_documents(
-        documents=readme_splits,
-        embedding=GPT4AllEmbeddings(disallowed_special=()),
-        persist_directory="./vectorstore-chroma",
-    ) # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
+    # Chroma.from_documents(
+    #     documents=readme_splits,
+    #     embedding=GPT4AllEmbeddings(disallowed_special=()),
+    #     persist_directory="./vectorstore-chroma",
+    # )  # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
 
 @app.command()
