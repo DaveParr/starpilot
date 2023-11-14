@@ -40,7 +40,7 @@ def read(
     Read a GitHub user's starred repositories and store the READMEs in a vectorstore
     """
 
-    readme_path = "./readmes"
+    readme_path = "./repo_content"
 
     if os.path.exists(readme_path):
         shutil.rmtree(readme_path)
@@ -60,9 +60,7 @@ def read(
 
     print(f"Reading {len(repo_contents)} stars...")
 
-    print(repo_contents[0])
-
-    utils.save_readmes_to_disk(repo_contents)
+    utils.save_repo_contents_to_disk(repo_contents)
 
     # readme_splits = utils.prepare_github_readmes(path=readme_path)
 

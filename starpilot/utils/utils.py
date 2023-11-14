@@ -49,13 +49,12 @@ def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
     return repo_contents
 
 
-def save_readmes_to_disk(
-    repo_contents: List[Dict], directory: str = "./readmes"
+def save_repo_contents_to_disk(
+    repo_contents: List[Dict], directory: str = "./repo_content"
 ) -> None:
     if not os.path.exists(directory):
         os.makedirs(directory)
     for repo in repo_contents:
-        # write to json
         with open(os.path.join(directory, repo["name"] + ".json"), "w") as f:
             json.dump(repo, f)
 
