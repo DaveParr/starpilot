@@ -1,14 +1,20 @@
+import shutil
 from typing import List, Optional, Dict
 import os
 import json
-from langchain.document_loaders import UnstructuredMarkdownLoader
+from langchain.document_loaders import UnstructuredMarkdownLoader, UnstructuredRSTLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from github.Repository import Repository
 from github import Github, UnknownObjectException
 from langchain.schema.document import Document
 
+try:
+    from icecream import ic
+except ImportError:  # Graceful fallback if IceCream isn't installed.
+    ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-def get_user_stars(
+
+def get_user_starred_repos(
     user: str, g: Github, num_repos: Optional[int] = None
 ) -> List[Repository]:
     starred_repos = []
@@ -50,26 +56,71 @@ def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
 
 
 def save_repo_contents_to_disk(
-    repo_contents: List[Dict], directory: str = "./repo_content"
+    repo_contents: List[Dict], repo_contents_dir: str = "./repo_content"
 ) -> None:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    if not os.path.exists(repo_contents_dir):
+        os.makedirs(repo_contents_dir)
+    else:
+        shutil.rmtree(repo_contents_dir)
+        os.makedirs(repo_contents_dir)
+
     for repo in repo_contents:
-        with open(os.path.join(directory, repo["name"] + ".json"), "w") as f:
-            json.dump(repo, f)
+        try:
+            repo_name = repo["name"]
+            ic(repo_name)
+            repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
+            ic(repo_write_path)
+            with open(repo_write_path, "w") as f:
+                json.dump(repo, f)
+                ic(f"Wrote {repo_name} to {repo_write_path}")
+        except Exception as e:
+            raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
 
 
-def prepare_github_readmes(path: str) -> List[Document]:
-    # IDEA: This could be refactored into a DocumentLoader. If it is then it would read files sequentially, and then ditch them to keep only 1 in memory at once.
+def prepare_repo_contents(
+    repo_contents_dir: str = "./repo_content",
+    repo_readmes_dir: str = "./repo_readmes",
+) -> List[Document]:
     file_paths = []
-    for file in os.listdir(path):
-        file_paths.append(os.path.join(path, file))
+    for file in os.listdir(repo_contents_dir):
+        file_paths.append(os.path.join(repo_contents_dir, file))
+
+    if not os.path.exists(repo_readmes_dir):
+        os.makedirs(repo_readmes_dir)
+    else:
+        shutil.rmtree(repo_readmes_dir)
+        os.makedirs(repo_readmes_dir)
 
     documents = []
     for file_path in file_paths:
-        loader = UnstructuredMarkdownLoader(file_path)
-        # IDEA: modify behaviour for RST vs MD: https://api.python.langchain.com/en/latest/document_loaders/langchain.document_loaders.rst.UnstructuredRSTLoader.html
-        documents.extend(loader.load())
+        with open(file_path, "r") as f:
+            repo_content = json.load(f)
+            repo_name = repo_content["name"]
+            if repo_content["readme"] is not None:
+                if repo_content["readme"]["type"] == "md":
+                    # write MD to file
+                    with open(
+                        os.path.join(repo_readmes_dir, f"{repo_name}.md"), "w"
+                    ) as f:
+                        f.write(repo_content["readme"]["content"])
+                    loaded_document = UnstructuredMarkdownLoader(
+                        repo_readmes_dir + f"/{repo_name}.md",
+                    )
+
+                    documents.extend(loaded_document.load())
+                elif repo_content["readme"]["type"] == "rst":
+                    # write RST to file
+                    with open(
+                        os.path.join(repo_readmes_dir, f"{repo_name}.rst"), "w"
+                    ) as f:
+                        f.write(repo_content["readme"]["content"])
+                    loaded_document = UnstructuredRSTLoader(
+                        repo_readmes_dir + f"/{repo_name}.rst"
+                    )
+                    documents.extend(loaded_document.load()) # This needs an install of Pandoc on the system
+                else:
+                    print(f"Repo {repo_name} readme failed to load")
+                    continue
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
 

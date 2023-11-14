@@ -5,13 +5,16 @@ import starpilot.utils.utils as utils
 import dotenv
 import os
 from rich import print
+import shutil
 from langchain import hub
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.llms import GPT4All
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
-import shutil
+from icecream import install
+
+install()
 
 app = typer.Typer()
 
@@ -39,41 +42,35 @@ def read(
 
     Read a GitHub user's starred repositories and store the READMEs in a vectorstore
     """
-
-    readme_path = "./repo_content"
-
-    if os.path.exists(readme_path):
-        shutil.rmtree(readme_path)
-
     print("Spotting your stars...")
 
-    user_stars = utils.get_user_stars(
+    repos = utils.get_user_starred_repos(
         user=user,
         g=GITHUB_CONNECTION,
         num_repos=num_repos,
     )
 
     repo_contents = utils.get_repo_contents(
-        repos=user_stars,
+        repos=repos,
         g=GITHUB_CONNECTION,
     )
 
     print(f"Reading {len(repo_contents)} stars...")
 
-    utils.save_repo_contents_to_disk(repo_contents)
+    utils.save_repo_contents_to_disk(repo_contents=repo_contents)
 
-    # readme_splits = utils.prepare_github_readmes(path=readme_path)
+    repo_documents = utils.prepare_repo_contents()
 
-    # vectorstore_path = "./vectorstore-chroma"
+    vectorstore_path = "./vectorstore-chroma"
 
-    # if os.path.exists(vectorstore_path):
-    #     shutil.rmtree(vectorstore_path)
+    if os.path.exists(vectorstore_path):
+        shutil.rmtree(vectorstore_path)
 
-    # Chroma.from_documents(
-    #     documents=readme_splits,
-    #     embedding=GPT4AllEmbeddings(disallowed_special=()),
-    #     persist_directory="./vectorstore-chroma",
-    # )  # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
+    Chroma.from_documents(
+        documents=repo_documents,
+        embedding=GPT4AllEmbeddings(disallowed_special=()),
+        persist_directory="./vectorstore-chroma",
+    )  # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
 
 @app.command()

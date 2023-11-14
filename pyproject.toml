@@ -18,11 +18,13 @@ pygithub = "^2.1.1"
 unstructured = "^0.10.29"
 markdown = "^3.5.1"
 langchainhub = "^0.1.13"
+pypandoc = "^1.12"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.1"
 isort = "^5.12.0"
 ruff = "^0.1.4"
+icecream = "^2.1.3"
 
 [build-system]
 requires = ["poetry-core"]
