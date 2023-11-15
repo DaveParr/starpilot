@@ -21,7 +21,7 @@ def get_user_starred_repos(
     for repo in g.get_user(user).get_starred():
         starred_repos.append(repo)
 
-    # IDEAS: there could be a threshold for star count below which repos are removed
+    # IDEA: there could be a threshold for star count below which repos are removed
     starred_repos.sort(key=lambda repo: repo.stargazers_count, reverse=True)
 
     if num_repos is not None:
@@ -91,6 +91,8 @@ def prepare_repo_contents(
         shutil.rmtree(repo_readmes_dir)
         os.makedirs(repo_readmes_dir)
 
+    # TODO: This should enhance the document with url metadata
+    # TODO: This should use the topics
     documents = []
     for file_path in file_paths:
         with open(file_path, "r") as f:
@@ -117,7 +119,9 @@ def prepare_repo_contents(
                     loaded_document = UnstructuredRSTLoader(
                         repo_readmes_dir + f"/{repo_name}.rst"
                     )
-                    documents.extend(loaded_document.load()) # This needs an install of Pandoc on the system
+                    documents.extend(
+                        loaded_document.load()
+                    )  # This needs an install of Pandoc on the system
                 else:
                     print(f"Repo {repo_name} readme failed to load")
                     continue

@@ -1,3 +1,4 @@
+from langchain.chains import RetrievalQA
 import typer
 from typing_extensions import Optional
 from github import Github
@@ -6,9 +7,6 @@ import dotenv
 import os
 from rich import print
 import shutil
-from langchain import hub
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain.schema.runnable import RunnablePassthrough
 from langchain.llms import GPT4All
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
@@ -95,21 +93,24 @@ def shoot(query: str):
 
 
 @app.command()
-def horoscope(question: str):
-    from langchain.chains import RetrievalQA
+def fortuneteller(
+    question: str,
+):
+    """
+    Talk to the fortune teller
+
+    Ask the fortune teller a question and receive an answer from the stars
+    """
 
     retriever = Chroma(
         persist_directory=VECTORSTORE_PATH,
         embedding_function=GPT4AllEmbeddings(disallowed_special=()),
     ).as_retriever(
         search_type="mmr",
-        search_kwargs={"fetch_k": 3},
+        search_kwargs={"fetch_k": 12},
     )
 
     model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
-
-    # Callbacks support token-wise streaming
-    callbacks = [StreamingStdOutCallbackHandler()]
 
     # Verbose is required to pass to the callback manager
     llm = GPT4All(model=model_path, verbose=True)
