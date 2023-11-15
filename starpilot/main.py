@@ -11,6 +11,7 @@ from langchain.llms import GPT4All
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
 from icecream import install
+from langchain.prompts import PromptTemplate
 
 install()
 
@@ -64,6 +65,8 @@ def read(
     if os.path.exists(vectorstore_path):
         shutil.rmtree(vectorstore_path)
 
+    # IDEA: Use llm to extract the value proposition from the READMEs, then use that as the content for the vectorstore
+
     Chroma.from_documents(
         documents=repo_documents,
         embedding=GPT4AllEmbeddings(disallowed_special=()),
@@ -86,6 +89,7 @@ def shoot(query: str):
         persist_directory=VECTORSTORE_PATH,
         embedding_function=GPT4AllEmbeddings(disallowed_special=()),
     )
+
     results = vectorstore_retrival.similarity_search(query)
 
     for result in results:
@@ -95,6 +99,9 @@ def shoot(query: str):
 @app.command()
 def fortuneteller(
     question: str,
+    fetch_k: Optional[int] = typer.Option(
+        15, help="Number of results to fetch from the vectorstore"
+    ),
 ):
     """
     Talk to the fortune teller
@@ -102,21 +109,29 @@ def fortuneteller(
     Ask the fortune teller a question and receive an answer from the stars
     """
 
-    retriever = Chroma(
-        persist_directory=VECTORSTORE_PATH,
-        embedding_function=GPT4AllEmbeddings(disallowed_special=()),
-    ).as_retriever(
-        search_type="mmr",
-        search_kwargs={"fetch_k": 12},
-    )
-
     model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
 
-    # Verbose is required to pass to the callback manager
-    llm = GPT4All(model=model_path, verbose=True)
+    template = """
+    You are an AI assitant with access to a users GitHub starred repos. 
+    Here is some information about GitHub repos this user has starred: {context}
+    Breifly summarise why these repos are relevant to the question {question}
+
+    If they are not do not use them in your answer. 
+    """
+
+    prompt = PromptTemplate(input_variables=["context", "question"], template=template)
 
     with_sources_chain = RetrievalQA.from_chain_type(
-        llm, retriever=retriever, return_source_documents=True
+        GPT4All(model=model_path),
+        retriever=Chroma(
+            persist_directory=VECTORSTORE_PATH,
+            embedding_function=GPT4AllEmbeddings(disallowed_special=()),
+        ).as_retriever(
+            search_type="mmr",
+            search_kwargs={"fetch_k": fetch_k},
+        ),
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": prompt},
     )
 
     response = with_sources_chain.invoke(question)
