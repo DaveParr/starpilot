@@ -2,7 +2,11 @@ import shutil
 from typing import List, Optional, Dict
 import os
 import json
-from langchain.document_loaders import UnstructuredMarkdownLoader, UnstructuredRSTLoader
+from langchain.document_loaders import (
+    UnstructuredMarkdownLoader,
+    UnstructuredRSTLoader,
+    JSONLoader,
+)
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from github.Repository import Repository
 from github import Github, UnknownObjectException
@@ -32,12 +36,16 @@ def get_user_starred_repos(
 
 def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
     repo_contents = []
+    # FIXME: Handling of optional fields could be improved
     for repo in repos:
         content = {}
         content["name"] = repo.name
         content["url"] = repo.html_url
+
         content["description"] = repo.description
+
         content["topics"] = repo.get_topics()
+
         content["readme"] = {}
         try:
             readme = repo.get_contents("README.md")
@@ -49,9 +57,11 @@ def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
                 content["readme"]["type"] = "rst"
                 content["readme"]["content"] = readme.decoded_content.decode("utf-8")
             except UnknownObjectException:
-                content["readme"]["type"] = None
-                content["readme"] = None
+                content["readme"]["type"] = "None"
+                content["readme"] = "None"
+
         repo_contents.append(content)
+
     return repo_contents
 
 
@@ -67,9 +77,7 @@ def save_repo_contents_to_disk(
     for repo in repo_contents:
         try:
             repo_name = repo["name"]
-            ic(repo_name)
             repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
-            ic(repo_write_path)
             with open(repo_write_path, "w") as f:
                 json.dump(repo, f)
                 ic(f"Wrote {repo_name} to {repo_write_path}")
@@ -77,10 +85,27 @@ def save_repo_contents_to_disk(
             raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
 
 
-def prepare_repo_contents(
+def prepare_description_documents(
+    repo_contents_dir: str = "./repo_content",
+) -> List[Document]:
+    file_paths = []
+    for file in os.listdir(repo_contents_dir):
+        file_paths.append(os.path.join(repo_contents_dir, file))
+
+    documents = []
+    for file_path in file_paths:
+        loaded_document = JSONLoader(file_path, jq_schema=".description")
+        ic(loaded_document.load())
+        documents.extend(loaded_document.load())
+
+    return documents
+
+
+def prepare_readme_documents(
     repo_contents_dir: str = "./repo_content",
     repo_readmes_dir: str = "./repo_readmes",
 ) -> List[Document]:
+    # IDEA: Use llm to extract the value proposition from the READMEs, then use that as the content for the vectorstore
     file_paths = []
     for file in os.listdir(repo_contents_dir):
         file_paths.append(os.path.join(repo_contents_dir, file))

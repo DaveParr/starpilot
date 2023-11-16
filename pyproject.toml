@@ -19,6 +19,7 @@ unstructured = "^0.10.29"
 markdown = "^3.5.1"
 langchainhub = "^0.1.13"
 pypandoc = "^1.12"
+jq = "^1.6.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.1"

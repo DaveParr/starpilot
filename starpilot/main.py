@@ -12,6 +12,19 @@ from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
 from icecream import install
 from langchain.prompts import PromptTemplate
+from enum import Enum
+
+
+class only_values(str, Enum):
+    all = "all"
+    descriptions = "descriptions"
+    readmes = "readmes"
+
+
+try:
+    from icecream import ic
+except ImportError:  # Graceful fallback if IceCream isn't installed.
+    ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
 install()
 
@@ -32,6 +45,9 @@ GITHUB_CONNECTION = Github(git_hub_key)
 @app.command()
 def read(
     user: str,
+    only: Optional[only_values] = typer.Option(
+        only_values.all, help="Only read descriptions or readmes"
+    ),
     num_repos: Optional[int] = typer.Option(
         None, help="Number of repositories to load"
     ),
@@ -58,20 +74,30 @@ def read(
 
     utils.save_repo_contents_to_disk(repo_contents=repo_contents)
 
-    repo_documents = utils.prepare_repo_contents()
-
     vectorstore_path = "./vectorstore-chroma"
 
     if os.path.exists(vectorstore_path):
         shutil.rmtree(vectorstore_path)
 
-    # IDEA: Use llm to extract the value proposition from the READMEs, then use that as the content for the vectorstore
+    # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
-    Chroma.from_documents(
-        documents=repo_documents,
-        embedding=GPT4AllEmbeddings(disallowed_special=()),
-        persist_directory="./vectorstore-chroma",
-    )  # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
+    if only == only_values.all or only == only_values.descriptions:
+        repo_descriptions = utils.prepare_description_documents()
+
+        Chroma.from_documents(
+            documents=repo_descriptions,
+            embedding=GPT4AllEmbeddings(disallowed_special=()),
+            persist_directory=vectorstore_path,
+        )
+
+    if only == only_values.all or only == only_values.readmes:
+        readme_documents = utils.prepare_readme_documents()
+
+        Chroma.from_documents(
+            documents=readme_documents,
+            embedding=GPT4AllEmbeddings(disallowed_special=()),
+            persist_directory=vectorstore_path,
+        )
 
 
 @app.command()
@@ -119,9 +145,7 @@ def fortuneteller(
     If they are not do not use them in your answer. 
     """
 
-    prompt = PromptTemplate(input_variables=["context", "question"], template=template)
-
-    with_sources_chain = RetrievalQA.from_chain_type(
+    chain = RetrievalQA.from_chain_type(
         GPT4All(model=model_path),
         retriever=Chroma(
             persist_directory=VECTORSTORE_PATH,
@@ -131,10 +155,14 @@ def fortuneteller(
             search_kwargs={"fetch_k": fetch_k},
         ),
         return_source_documents=True,
-        chain_type_kwargs={"prompt": prompt},
+        chain_type_kwargs={
+            "prompt": PromptTemplate(
+                input_variables=["context", "question"], template=template
+            )
+        },
     )
 
-    response = with_sources_chain.invoke(question)
+    response = chain.invoke(question)
 
     print(response["result"])
 
