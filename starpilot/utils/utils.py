@@ -21,10 +21,7 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
 def get_user_starred_repos(
     user: str, g: Github, num_repos: Optional[int] = None
 ) -> List[Repository]:
-    starred_repos = []
-    for repo in g.get_user(user).get_starred():
-        starred_repos.append(repo)
-
+    starred_repos = list(g.get_user(user).get_starred())
     # IDEA: there could be a threshold for star count below which repos are removed
     starred_repos.sort(key=lambda repo: repo.stargazers_count, reverse=True)
 
@@ -38,15 +35,13 @@ def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
     repo_contents = []
     # FIXME: Handling of optional fields could be improved
     for repo in repos:
-        content = {}
-        content["name"] = repo.name
-        content["url"] = repo.html_url
-
-        content["description"] = repo.description
-
-        content["topics"] = repo.get_topics()
-
-        content["readme"] = {}
+        content = {
+            "name": repo.name,
+            "url": repo.html_url,
+            "description": repo.description,
+            "topics": repo.get_topics(),
+            "readme": {},
+        }
         try:
             readme = repo.get_contents("README.md")
             content["readme"]["type"] = "md"
@@ -68,16 +63,13 @@ def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
 def save_repo_contents_to_disk(
     repo_contents: List[Dict], repo_contents_dir: str = "./repo_content"
 ) -> None:
-    if not os.path.exists(repo_contents_dir):
-        os.makedirs(repo_contents_dir)
-    else:
+    if os.path.exists(repo_contents_dir):
         shutil.rmtree(repo_contents_dir)
-        os.makedirs(repo_contents_dir)
-
+    os.makedirs(repo_contents_dir)
     for repo in repo_contents:
         try:
             repo_name = repo["name"]
-            repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
+            repo_write_path = os.path.join(repo_contents_dir, f"{repo_name}.json")
             with open(repo_write_path, "w") as f:
                 json.dump(repo, f)
                 ic(f"Wrote {repo_name} to {repo_write_path}")
@@ -88,11 +80,10 @@ def save_repo_contents_to_disk(
 def prepare_topic_documents(
     repo_contents_dir: str = "./repo_content",
 ) -> List[Document]:
-    # Never run, probably broken
-    file_paths = []
-    for file in os.listdir(repo_contents_dir):
-        file_paths.append(os.path.join(repo_contents_dir, file))
-
+    file_paths = [
+        os.path.join(repo_contents_dir, file)
+        for file in os.listdir(repo_contents_dir)
+    ]
     documents = []
     for file_path in file_paths:
         loaded_document = JSONLoader(file_path, jq_schema=".topics", text_content=False)
@@ -105,10 +96,10 @@ def prepare_topic_documents(
 def prepare_description_documents(
     repo_contents_dir: str = "./repo_content",
 ) -> List[Document]:
-    file_paths = []
-    for file in os.listdir(repo_contents_dir):
-        file_paths.append(os.path.join(repo_contents_dir, file))
-
+    file_paths = [
+        os.path.join(repo_contents_dir, file)
+        for file in os.listdir(repo_contents_dir)
+    ]
     documents = []
     for file_path in file_paths:
         loaded_document = JSONLoader(file_path, jq_schema=".description")
@@ -122,17 +113,13 @@ def prepare_readme_documents(
     repo_contents_dir: str = "./repo_content",
     repo_readmes_dir: str = "./repo_readmes",
 ) -> List[Document]:
-    # IDEA: Use llm to extract the value proposition from the READMEs, then use that as the content for the vectorstore
-    file_paths = []
-    for file in os.listdir(repo_contents_dir):
-        file_paths.append(os.path.join(repo_contents_dir, file))
-
-    if not os.path.exists(repo_readmes_dir):
-        os.makedirs(repo_readmes_dir)
-    else:
+    file_paths = [
+        os.path.join(repo_contents_dir, file)
+        for file in os.listdir(repo_contents_dir)
+    ]
+    if os.path.exists(repo_readmes_dir):
         shutil.rmtree(repo_readmes_dir)
-        os.makedirs(repo_readmes_dir)
-
+    os.makedirs(repo_readmes_dir)
     # TODO: This should enhance the document with url metadata
     # TODO: This should use the topics
     documents = []
@@ -148,7 +135,7 @@ def prepare_readme_documents(
                     ) as f:
                         f.write(repo_content["readme"]["content"])
                     loaded_document = UnstructuredMarkdownLoader(
-                        repo_readmes_dir + f"/{repo_name}.md",
+                        f"{repo_readmes_dir}/{repo_name}.md"
                     )
 
                     documents.extend(loaded_document.load())
@@ -158,9 +145,7 @@ def prepare_readme_documents(
                         os.path.join(repo_readmes_dir, f"{repo_name}.rst"), "w"
                     ) as f:
                         f.write(repo_content["readme"]["content"])
-                    loaded_document = UnstructuredRSTLoader(
-                        repo_readmes_dir + f"/{repo_name}.rst"
-                    )
+                    loaded_document = UnstructuredRSTLoader(f"{repo_readmes_dir}/{repo_name}.rst")
                     documents.extend(
                         loaded_document.load()
                     )  # This needs an install of Pandoc on the system
@@ -170,6 +155,4 @@ def prepare_readme_documents(
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=0)
 
-    splits = text_splitter.split_documents(documents)
-
-    return splits
+    return text_splitter.split_documents(documents)

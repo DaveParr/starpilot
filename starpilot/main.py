@@ -82,7 +82,7 @@ def read(
 
     # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
-    if only == only_values.all or only == only_values.descriptions:
+    if only in [only_values.all, only_values.descriptions]:
         repo_descriptions = utils.prepare_description_documents()
 
         Chroma.from_documents(
@@ -91,7 +91,7 @@ def read(
             persist_directory=vectorstore_path,
         )
 
-    if only == only_values.all or only == only_values.topics:
+    if only in [only_values.all, only_values.topics]:
         repo_topics = utils.prepare_topic_documents()
 
         Chroma.from_documents(
@@ -100,7 +100,7 @@ def read(
             persist_directory=vectorstore_path,
         )
 
-    if only == only_values.all or only == only_values.readmes:
+    if only in [only_values.all, only_values.readmes]:
         readme_documents = utils.prepare_readme_documents()
 
         Chroma.from_documents(
