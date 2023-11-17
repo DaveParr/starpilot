@@ -19,6 +19,7 @@ class only_values(str, Enum):
     all = "all"
     descriptions = "descriptions"
     readmes = "readmes"
+    topics = "topics"
 
 
 try:
@@ -86,6 +87,15 @@ def read(
 
         Chroma.from_documents(
             documents=repo_descriptions,
+            embedding=GPT4AllEmbeddings(disallowed_special=()),
+            persist_directory=vectorstore_path,
+        )
+
+    if only == only_values.all or only == only_values.topics:
+        repo_topics = utils.prepare_topic_documents()
+
+        Chroma.from_documents(
+            documents=repo_topics,
             embedding=GPT4AllEmbeddings(disallowed_special=()),
             persist_directory=vectorstore_path,
         )

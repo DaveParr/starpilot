@@ -85,6 +85,23 @@ def save_repo_contents_to_disk(
             raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
 
 
+def prepare_topic_documents(
+    repo_contents_dir: str = "./repo_content",
+) -> List[Document]:
+    # Never run, probably broken
+    file_paths = []
+    for file in os.listdir(repo_contents_dir):
+        file_paths.append(os.path.join(repo_contents_dir, file))
+
+    documents = []
+    for file_path in file_paths:
+        loaded_document = JSONLoader(file_path, jq_schema=".topics", text_content=False)
+        ic(loaded_document.load())
+        documents.extend(loaded_document.load())
+
+    return documents
+
+
 def prepare_description_documents(
     repo_contents_dir: str = "./repo_content",
 ) -> List[Document]:
