@@ -1,4 +1,5 @@
 import shutil
+from rich.progress import track
 from typing import List, Optional, Dict
 import os
 import json
@@ -22,7 +23,9 @@ def get_user_starred_repos(
     user: str, g: Github, num_repos: Optional[int] = None
 ) -> List[Repository]:
     starred_repos = []
-    for repo in g.get_user(user).get_starred():
+    for repo in track(
+        g.get_user(user).get_starred(), description="Spotting the stars..."
+    ):
         starred_repos.append(repo)
 
     # IDEA: there could be a threshold for star count below which repos are removed
@@ -34,31 +37,36 @@ def get_user_starred_repos(
     return starred_repos
 
 
-def get_repo_contents(repos: List[Repository], g: Github) -> List[Dict]:
+def get_repo_contents(
+    repos: List[Repository], include_readmes: bool, g: Github
+) -> List[Dict]:
     repo_contents = []
-    # FIXME: Handling of optional fields could be improved
-    for repo in repos:
+    for repo in track(repos, description="Reading the stars..."):
         content = {}
         content["name"] = repo.name
         content["url"] = repo.html_url
 
-        content["description"] = repo.description
+        if (description := repo.description) is not None:
+            content["description"] = description
 
-        content["topics"] = repo.get_topics()
+        if not (topics := repo.get_topics()) == []:
+            content["topics"] = topics
 
-        content["readme"] = {}
-        try:
-            readme = repo.get_contents("README.md")
-            content["readme"]["type"] = "md"
-            content["readme"]["content"] = readme.decoded_content.decode("utf-8")
-        except UnknownObjectException:
+        if include_readmes:
+            content["readme"] = {}
             try:
-                readme = repo.get_contents("README.rst")
-                content["readme"]["type"] = "rst"
+                readme = repo.get_contents("README.md")
+                content["readme"]["type"] = "md"
                 content["readme"]["content"] = readme.decoded_content.decode("utf-8")
             except UnknownObjectException:
-                content["readme"]["type"] = "None"
-                content["readme"] = "None"
+                try:
+                    readme = repo.get_contents("README.rst")
+                    content["readme"]["type"] = "rst"
+                    content["readme"]["content"] = readme.decoded_content.decode(
+                        "utf-8"
+                    )
+                except UnknownObjectException:
+                    continue
 
         repo_contents.append(content)
 
@@ -74,15 +82,18 @@ def save_repo_contents_to_disk(
         shutil.rmtree(repo_contents_dir)
         os.makedirs(repo_contents_dir)
 
-    for repo in repo_contents:
-        try:
-            repo_name = repo["name"]
-            repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
-            with open(repo_write_path, "w") as f:
-                json.dump(repo, f)
-                ic(f"Wrote {repo_name} to {repo_write_path}")
-        except Exception as e:
-            raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
+    for repo in track(repo_contents, description="Mapping the stars..."):
+        if set(repo.keys()) == {"name", "url"}:
+            # This is a repo with no useful content, so we can skip it
+            continue
+        else:
+            try:
+                repo_name = repo["name"]
+                repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
+                with open(repo_write_path, "w") as f:
+                    json.dump(repo, f)
+            except Exception as e:
+                raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
 
 
 def prepare_topic_documents(
@@ -94,10 +105,11 @@ def prepare_topic_documents(
         file_paths.append(os.path.join(repo_contents_dir, file))
 
     documents = []
-    for file_path in file_paths:
+    for file_path in track(file_paths, description="Loading topics..."):
         loaded_document = JSONLoader(file_path, jq_schema=".topics", text_content=False)
-        ic(loaded_document.load())
-        documents.extend(loaded_document.load())
+        # only extend the document list if page_content is not ''
+        if loaded_document.load()[0].page_content != "":
+            documents.extend(loaded_document.load())
 
     return documents
 
@@ -110,10 +122,11 @@ def prepare_description_documents(
         file_paths.append(os.path.join(repo_contents_dir, file))
 
     documents = []
-    for file_path in file_paths:
+    for file_path in track(file_paths, description="Loading descriptions..."):
         loaded_document = JSONLoader(file_path, jq_schema=".description")
-        ic(loaded_document.load())
-        documents.extend(loaded_document.load())
+        # only extend the document list if page_content is not ''
+        if loaded_document.load()[0].page_content != "":
+            documents.extend(loaded_document.load())
 
     return documents
 
@@ -134,9 +147,8 @@ def prepare_readme_documents(
         os.makedirs(repo_readmes_dir)
 
     # TODO: This should enhance the document with url metadata
-    # TODO: This should use the topics
     documents = []
-    for file_path in file_paths:
+    for file_path in track(file_paths, description="Loading READMEs..."):
         with open(file_path, "r") as f:
             repo_content = json.load(f)
             repo_name = repo_content["name"]

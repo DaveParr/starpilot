@@ -12,16 +12,9 @@ from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
 from icecream import install
 from langchain.prompts import PromptTemplate
-from enum import Enum
 
 
-class only_values(str, Enum):
-    all = "all"
-    descriptions = "descriptions"
-    readmes = "readmes"
-    topics = "topics"
-
-
+# Setup for icecream
 try:
     from icecream import ic
 except ImportError:  # Graceful fallback if IceCream isn't installed.
@@ -29,28 +22,30 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
 
 install()
 
-app = typer.Typer()
 
+# Environment variables
 dotenv.load_dotenv()
 
 VECTORSTORE_PATH = "./vectorstore-chroma"
 
 try:
     git_hub_key = os.getenv("GITHUB_API_KEY")
+    GITHUB_CONNECTION = Github(git_hub_key)
 except Exception:
     raise Exception("Please create a .env file with your GitHub token")
 
-GITHUB_CONNECTION = Github(git_hub_key)
+
+# Typer setup
+app = typer.Typer()
 
 
+# Typer commands
 @app.command()
 def read(
     user: str,
-    only: Optional[only_values] = typer.Option(
-        only_values.all, help="Only read descriptions or readmes"
-    ),
-    num_repos: Optional[int] = typer.Option(
-        None, help="Number of repositories to load"
+    num_repos: Optional[int] = typer.Option(500, help="Number of repositories to load"),
+    include_readmes: Optional[bool] = typer.Option(
+        False, help="Include READMEs in the vectorstore"
     ),
 ) -> None:
     """
@@ -58,7 +53,6 @@ def read(
 
     Read a GitHub user's starred repositories and store the READMEs in a vectorstore
     """
-    print("Spotting your stars...")
 
     repos = utils.get_user_starred_repos(
         user=user,
@@ -68,10 +62,9 @@ def read(
 
     repo_contents = utils.get_repo_contents(
         repos=repos,
+        include_readmes=include_readmes,
         g=GITHUB_CONNECTION,
     )
-
-    print(f"Reading {len(repo_contents)} stars...")
 
     utils.save_repo_contents_to_disk(repo_contents=repo_contents)
 
@@ -82,25 +75,23 @@ def read(
 
     # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
 
-    if only == only_values.all or only == only_values.descriptions:
-        repo_descriptions = utils.prepare_description_documents()
+    repo_descriptions = utils.prepare_description_documents()
 
-        Chroma.from_documents(
-            documents=repo_descriptions,
-            embedding=GPT4AllEmbeddings(disallowed_special=()),
-            persist_directory=vectorstore_path,
-        )
+    Chroma.from_documents(
+        documents=repo_descriptions,
+        embedding=GPT4AllEmbeddings(disallowed_special=()),
+        persist_directory=vectorstore_path,
+    )
 
-    if only == only_values.all or only == only_values.topics:
-        repo_topics = utils.prepare_topic_documents()
+    repo_topics = utils.prepare_topic_documents()
 
-        Chroma.from_documents(
-            documents=repo_topics,
-            embedding=GPT4AllEmbeddings(disallowed_special=()),
-            persist_directory=vectorstore_path,
-        )
+    Chroma.from_documents(
+        documents=repo_topics,
+        embedding=GPT4AllEmbeddings(disallowed_special=()),
+        persist_directory=vectorstore_path,
+    )
 
-    if only == only_values.all or only == only_values.readmes:
+    if include_readmes:
         readme_documents = utils.prepare_readme_documents()
 
         Chroma.from_documents(
@@ -135,6 +126,9 @@ def shoot(query: str):
 @app.command()
 def fortuneteller(
     question: str,
+    similarity: Optional[float] = typer.Option(
+        None, help="The similarity threshold to use"
+    ),
     fetch_k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
@@ -148,12 +142,21 @@ def fortuneteller(
     model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
 
     template = """
-    You are an AI assitant with access to a users GitHub starred repos. 
-    Here is some information about GitHub repos this user has starred: {context}
-    Breifly summarise why these repos are relevant to the question {question}
+    You are an AI assitant with access to my GitHub starred repos. 
+    Here is some information about some repos I have starred: {context}
+    Breifly summarise why these repos are relevant to the question: {question}
 
-    If they are not do not use them in your answer. 
+    If the repos are not relevant to the question ignore them. 
     """
+
+    # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
+
+    if similarity is not None:
+        method = "similarity_score_threshold"
+        score_threshold = similarity
+    else:
+        method = "mmr"
+        score_threshold = None
 
     chain = RetrievalQA.from_chain_type(
         GPT4All(model=model_path),
@@ -161,8 +164,8 @@ def fortuneteller(
             persist_directory=VECTORSTORE_PATH,
             embedding_function=GPT4AllEmbeddings(disallowed_special=()),
         ).as_retriever(
-            search_type="mmr",
-            search_kwargs={"fetch_k": fetch_k},
+            search_type=method,
+            search_kwargs={"fetch_k": fetch_k, "score_threshold": score_threshold},
         ),
         return_source_documents=True,
         chain_type_kwargs={
@@ -174,7 +177,4 @@ def fortuneteller(
 
     response = chain.invoke(question)
 
-    print(response["result"])
-
-    for source in response["source_documents"]:
-        print(source)
+    print(response)
