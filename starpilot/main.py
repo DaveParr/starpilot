@@ -49,9 +49,7 @@ def read(
     ),
 ) -> None:
     """
-    Read the stars
-
-    Read a GitHub user's starred repositories and store the READMEs in a vectorstore
+    Read stars from GitHub
     """
 
     repos = utils.get_user_starred_repos(
@@ -102,12 +100,25 @@ def read(
 
 
 @app.command()
-def shoot(query: str):
+def shoot(
+    query: str,
+    similarity: Optional[float] = typer.Option(
+        None, help="The similarity threshold to use"
+    ),
+    fetch_k: Optional[int] = typer.Option(
+        15, help="Number of results to fetch from the vectorstore"
+    ),
+):
     """
-    Shoot the stars
+    Shoot a query at the stars
+    """
 
-    Shoot your stars to discover the most similar READMEs
-    """
+    if similarity is not None:
+        method = "similarity_score_threshold"
+        score_threshold = similarity
+    else:
+        method = "mmr"
+        score_threshold = None
 
     if not os.path.exists(VECTORSTORE_PATH):
         raise Exception("Please load the stars before shooting")
@@ -115,9 +126,12 @@ def shoot(query: str):
     vectorstore_retrival = Chroma(
         persist_directory=VECTORSTORE_PATH,
         embedding_function=GPT4AllEmbeddings(disallowed_special=()),
+    ).as_retriever(
+        search_type=method,
+        search_kwargs={"fetch_k": fetch_k, "score_threshold": score_threshold},
     )
 
-    results = vectorstore_retrival.similarity_search(query)
+    results = vectorstore_retrival.get_relevant_documents(query)
 
     for result in results:
         print(result)
@@ -134,9 +148,7 @@ def fortuneteller(
     ),
 ):
     """
-    Talk to the fortune teller
-
-    Ask the fortune teller a question and receive an answer from the stars
+    Talk to the fortune teller about your stars
     """
 
     model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
