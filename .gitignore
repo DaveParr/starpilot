@@ -161,9 +161,11 @@ cython_debug/
 
 # Temporary anything files
 tmp.**
+/tmp
 
 # Specific to the project
 /models
 /repo_content
 /repo_readmes
 /vectorstore-chroma
+
