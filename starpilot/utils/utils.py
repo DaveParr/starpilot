@@ -1,17 +1,15 @@
-import shutil
-from rich.progress import track
-from typing import List, Optional, Dict
-import os
 import json
-from langchain.document_loaders import (
-    UnstructuredMarkdownLoader,
-    UnstructuredRSTLoader,
-    JSONLoader,
-)
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from github.Repository import Repository
+import os
+import shutil
+from typing import Dict, List, Optional
+
 from github import Github, UnknownObjectException
+from github.Repository import Repository
+from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
+                                        UnstructuredRSTLoader)
 from langchain.schema.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from rich.progress import track
 
 try:
     from icecream import ic

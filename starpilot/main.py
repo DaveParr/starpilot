@@ -1,18 +1,21 @@
-from langchain.chains import RetrievalQA
-import typer
-from typing_extensions import Optional
-from github import Github
-import starpilot.utils.utils as utils
-import dotenv
 import os
-from rich import print
 import shutil
-from langchain.llms import GPT4All
-from langchain.embeddings import GPT4AllEmbeddings
-from langchain.vectorstores import Chroma
-from icecream import install
-from langchain.prompts import PromptTemplate
 
+import dotenv
+import typer
+from github import Github
+from icecream import install
+from langchain.chains import RetrievalQA
+from langchain.embeddings import GPT4AllEmbeddings
+from langchain.llms import GPT4All
+from langchain.prompts import PromptTemplate
+from langchain.vectorstores import Chroma
+from rich import print
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from typing_extensions import Optional
+
+import starpilot.utils.utils as utils
 
 # Setup for icecream
 try:
@@ -72,7 +75,7 @@ def read(
         shutil.rmtree(vectorstore_path)
 
     # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
-
+    # TODO: Set the document id to be specific to the repo, and then have the topic, description, and readme to be sequenced together
     repo_descriptions = utils.prepare_description_documents()
 
     Chroma.from_documents(
@@ -149,17 +152,27 @@ def fortuneteller(
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
+    model: Optional[str] = typer.Option(
+        "openorca", help="The model to use for the answer"
+    ),
 ):
     """
     Talk to the fortune teller about your stars
     """
 
-    model_path = "./models/mistral-7b-openorca.Q4_0.gguf"
+    if model == "openorca":
+        model_path = "models/mistral-7b-openorca.Q4_0.gguf"
+    elif model == "instruct":
+        model_path = "models/mistral-7b-instruct-v0.1.Q4_0.gguf"
+    elif model == "falcon":
+        model_path = "models/gpt4all-falcon-q4_0.gguf"
+    else:
+        raise Exception("Please select a valid model")
 
     template = """
     You are an AI assitant with access to my GitHub starred repos. 
-    Select which repos are the relevant repos from {context} to answer the question: 
-    {question} and summarise them.
+    Decide which repos are the relevant repos from {context} to answer the question: 
+    {question} and summarise why they are relevant to the topics of the {question}.
 
     If the repos are not relevant to the question ignore them. 
     """
@@ -190,6 +203,26 @@ def fortuneteller(
         },
     )
 
-    response = chain.invoke(question)
+    with Progress(SpinnerColumn(), TextColumn("{task.description}")) as progress:
+        task = progress.add_task("[cyan]Processing...", total=100)
 
-    print(response)
+        while not progress.finished:
+            response = chain.invoke(question)
+
+            progress.update(task, advance=100)
+
+    print(Panel(response.get("result")))
+
+    from rich.table import Table
+
+    table = Table(title="Source Documents")
+
+    table.add_column("Page Content")
+    table.add_column("Source")
+
+    for source_document in response.get("source_documents"):
+        table.add_row(
+            source_document.page_content, source_document.metadata.get("source")
+        )
+
+    print(table)

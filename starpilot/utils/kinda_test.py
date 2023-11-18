@@ -1,6 +1,7 @@
-import github
-import dotenv
 import os
+
+import dotenv
+import github
 import utils
 
 dotenv.load_dotenv()
