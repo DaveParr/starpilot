@@ -5,11 +5,17 @@ from typing import Dict, List, Optional
 
 from github import Github, UnknownObjectException
 from github.Repository import Repository
-from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
-                                        UnstructuredRSTLoader)
+from langchain.document_loaders import (
+    JSONLoader,
+    UnstructuredMarkdownLoader,
+    UnstructuredRSTLoader,
+)
+from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma
 from rich.progress import track
+from rich.table import Table
 
 try:
     from icecream import ic
@@ -183,3 +189,35 @@ def prepare_readme_documents(
     splits = text_splitter.split_documents(documents)
 
     return splits
+
+
+def create_retriever(
+    vectorstore_path: str,
+    k: int,
+    method: str = "similarity",
+    score_threshold: float = 0.3,
+) -> Chroma:
+    return Chroma(
+        persist_directory=vectorstore_path,
+        embedding_function=GPT4AllEmbeddings(disallowed_special=()),
+    ).as_retriever(
+        search_type=method,
+        search_kwargs={
+            "k": k,
+            "score_threshold": score_threshold,
+        },
+    )
+
+
+def create_results_table(response: dict) -> Table:
+    table = Table(title="Source Documents")
+
+    table.add_column("Page Content")
+    table.add_column("Source")
+
+    for source_document in response:
+        table.add_row(
+            source_document.page_content, source_document.metadata.get("source")
+        )
+
+    return table

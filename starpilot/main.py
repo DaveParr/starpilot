@@ -1,5 +1,6 @@
 import os
 import shutil
+from enum import Enum
 
 import dotenv
 import typer
@@ -102,127 +103,112 @@ def read(
         )
 
 
+class SearchMethods(Enum):
+    similarity = "similarity"
+    similarity_score_threshold = "similarity_score_threshold"
+    mmr = "mmr"
+
+
 @app.command()
 def shoot(
     query: str,
-    similarity: Optional[float] = typer.Option(
-        None, help="The similarity threshold to use"
-    ),
+    method: SearchMethods = typer.Option("similarity", help="The search method to use"),
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
+    ),
+    threshold: Optional[float] = typer.Option(
+        0.3, help="The similarity threshold to use"
     ),
 ):
     """
     Shoot a query at the stars
     """
 
-    if similarity is not None:
-        method = "similarity_score_threshold"
-        score_threshold = similarity
-    else:
-        method = "mmr"
-        score_threshold = None
-
     if not os.path.exists(VECTORSTORE_PATH):
         raise Exception("Please load the stars before shooting")
 
-    vectorstore_retrival = Chroma(
-        persist_directory=VECTORSTORE_PATH,
-        embedding_function=GPT4AllEmbeddings(disallowed_special=()),
-    ).as_retriever(
-        search_type=method,
-        search_kwargs={
-            "k": k,
-            "score_threshold": score_threshold,
-        },
+    retriever = utils.create_retriever(
+        vectorstore_path=VECTORSTORE_PATH,
+        k=k,
+        method=method.value,
+        score_threshold=threshold,
     )
 
-    results = vectorstore_retrival.get_relevant_documents(query)
+    results = retriever.get_relevant_documents(query)
 
-    for result in results:
-        print(result)
+    table = utils.create_results_table(results)
+
+    print(table)
+
+
+class Model(Enum):
+    openorca = "openorca"
+    orcamini = "orcamini"
+    instruct = "instruct"
+    falcon = "falcon"
+
+    def to_path(self):
+        return {
+            "openorca": "models/mistral-7b-openorca.Q4_0.gguf",
+            "orcamini": "models/orca-mini-3b-gguf2-q4_0.gguf",
+            "instruct": "models/mistral-7b-instruct-v0.1.Q4_0.gguf",
+            "falcon": "models/gpt4all-falcon-q4_0.gguf",
+        }[self.value]
 
 
 @app.command()
 def fortuneteller(
     question: str,
-    similarity: Optional[float] = typer.Option(
-        None, help="The similarity threshold to use"
+    threshold: Optional[float] = typer.Option(
+        0.3, help="The similarity threshold to use"
     ),
+    method: SearchMethods = typer.Option("similarity", help="The search method to use"),
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
-    model: Optional[str] = typer.Option(
-        "openorca", help="The model to use for the answer"
-    ),
+    model: Model = typer.Option("openorca", help="The model to use for the answer"),
 ):
     """
     Talk to the fortune teller about your stars
     """
 
-    if model == "openorca":
-        model_path = "models/mistral-7b-openorca.Q4_0.gguf"
-    elif model == "instruct":
-        model_path = "models/mistral-7b-instruct-v0.1.Q4_0.gguf"
-    elif model == "falcon":
-        model_path = "models/gpt4all-falcon-q4_0.gguf"
-    else:
-        raise Exception("Please select a valid model")
+    model_path = model.to_path()
 
-    template = """
+    # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
+
+    chain = RetrievalQA.from_chain_type(
+        GPT4All(model=model_path),
+        retriever=utils.create_retriever(
+            vectorstore_path=VECTORSTORE_PATH,
+            k=k,
+            method=method.value,
+            score_threshold=threshold,
+        ),
+        return_source_documents=True,
+        chain_type_kwargs={
+            "prompt": PromptTemplate(
+                input_variables=["context", "question"],
+                template="""
     You are an AI assitant with access to my GitHub starred repos. 
     Decide which repos are the relevant repos from {context} to answer the question: 
     {question} and summarise why they are relevant to the topics of the {question}.
 
     If the repos are not relevant to the question ignore them. 
-    """
-
-    # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
-
-    if similarity is not None:
-        method = "similarity_score_threshold"
-        score_threshold = similarity
-    else:
-        method = "mmr"
-        score_threshold = None
-
-    chain = RetrievalQA.from_chain_type(
-        GPT4All(model=model_path),
-        retriever=Chroma(
-            persist_directory=VECTORSTORE_PATH,
-            embedding_function=GPT4AllEmbeddings(disallowed_special=()),
-        ).as_retriever(
-            search_type=method,
-            search_kwargs={"k": k, "score_threshold": score_threshold},
-        ),
-        return_source_documents=True,
-        chain_type_kwargs={
-            "prompt": PromptTemplate(
-                input_variables=["context", "question"], template=template
+    """,
             )
         },
     )
 
     with Progress(SpinnerColumn(), TextColumn("{task.description}")) as progress:
-        task = progress.add_task("[cyan]Processing...", total=100)
+        task = progress.add_task("[cyan]Thinking...", total=100)
 
         while not progress.finished:
             response = chain.invoke(question)
 
             progress.update(task, advance=100)
 
-    print(Panel(response.get("result")))
+    print(Panel(response.get("result")))  # FIXME: There isn't any response from the llm
 
-    from rich.table import Table
-
-    table = Table(title="Source Documents")
-
-    table.add_column("Page Content")
-    table.add_column("Source")
-
-    for source_document in response.get("source_documents"):
-        table.add_row(
-            source_document.page_content, source_document.metadata.get("source")
-        )
+    table = utils.create_results_table(response.get("source_documents"))
 
     print(table)
