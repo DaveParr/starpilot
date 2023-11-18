@@ -105,7 +105,7 @@ def shoot(
     similarity: Optional[float] = typer.Option(
         None, help="The similarity threshold to use"
     ),
-    fetch_k: Optional[int] = typer.Option(
+    k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
 ):
@@ -128,7 +128,10 @@ def shoot(
         embedding_function=GPT4AllEmbeddings(disallowed_special=()),
     ).as_retriever(
         search_type=method,
-        search_kwargs={"fetch_k": fetch_k, "score_threshold": score_threshold},
+        search_kwargs={
+            "k": k,
+            "score_threshold": score_threshold,
+        },
     )
 
     results = vectorstore_retrival.get_relevant_documents(query)
@@ -143,7 +146,7 @@ def fortuneteller(
     similarity: Optional[float] = typer.Option(
         None, help="The similarity threshold to use"
     ),
-    fetch_k: Optional[int] = typer.Option(
+    k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
 ):
@@ -155,8 +158,8 @@ def fortuneteller(
 
     template = """
     You are an AI assitant with access to my GitHub starred repos. 
-    Here is some information about some repos I have starred: {context}
-    Breifly summarise why these repos are relevant to the question: {question}
+    Select which repos are the relevant repos from {context} to answer the question: 
+    {question} and summarise them.
 
     If the repos are not relevant to the question ignore them. 
     """
@@ -177,7 +180,7 @@ def fortuneteller(
             embedding_function=GPT4AllEmbeddings(disallowed_special=()),
         ).as_retriever(
             search_type=method,
-            search_kwargs={"fetch_k": fetch_k, "score_threshold": score_threshold},
+            search_kwargs={"k": k, "score_threshold": score_threshold},
         ),
         return_source_documents=True,
         chain_type_kwargs={
