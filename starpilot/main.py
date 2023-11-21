@@ -174,6 +174,12 @@ def fortuneteller(
 
     model_path = model.to_path()
 
+    # error handling for if the model doesn't exist
+    if not os.path.exists(model_path):
+        raise Exception(
+            f"Please download the model {model.value} from https://gpt4all.io/ and place it in {model_path}"
+        )
+
     # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
 
     chain = RetrievalQA.from_chain_type(
@@ -193,7 +199,7 @@ def fortuneteller(
     Decide which repos are the relevant repos from {context} to answer the question: 
     {question} and summarise why they are relevant to the topics of the {question}.
 
-    If the repos are not relevant to the question ignore them. 
+    If the repos are not relevant to the question: {question} ignore them. 
     """,
             )
         },
@@ -207,7 +213,7 @@ def fortuneteller(
 
             progress.update(task, advance=100)
 
-    print(Panel(response.get("result")))  # FIXME: There isn't any response from the llm
+    print(Panel(response.get("result")))
 
     table = utils.create_results_table(response.get("source_documents"))
 

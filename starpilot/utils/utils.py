@@ -5,11 +5,8 @@ from typing import Dict, List, Optional
 
 from github import Github, UnknownObjectException
 from github.Repository import Repository
-from langchain.document_loaders import (
-    JSONLoader,
-    UnstructuredMarkdownLoader,
-    UnstructuredRSTLoader,
-)
+from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
+                                        UnstructuredRSTLoader)
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -199,7 +196,7 @@ def create_retriever(
 ) -> Chroma:
     return Chroma(
         persist_directory=vectorstore_path,
-        embedding_function=GPT4AllEmbeddings(disallowed_special=()),
+        embedding_function=GPT4AllEmbeddings(),  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663
     ).as_retriever(
         search_type=method,
         search_kwargs={
