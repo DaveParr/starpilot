@@ -29,7 +29,7 @@ You will also potentially need [Pandoc installed](https://pandoc.org/installing.
 
 ### Usage
 
-<script async id="asciicast-622351" src="https://asciinema.org/a/622351.js"></script>
+[![asciicast](https://asciinema.org/a/622351.svg)](https://asciinema.org/a/622351)
 
 ``` bash
 starpilot --help
