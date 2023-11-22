@@ -136,6 +136,8 @@ def shoot(
 
     results = retriever.get_relevant_documents(query)
 
+    print(results)
+
     table = utils.create_results_table(results)
 
     print(table)

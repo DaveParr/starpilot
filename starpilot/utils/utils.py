@@ -5,8 +5,11 @@ from typing import Dict, List, Optional
 
 from github import Github, UnknownObjectException
 from github.Repository import Repository
-from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
-                                        UnstructuredRSTLoader)
+from langchain.document_loaders import (
+    JSONLoader,
+    UnstructuredMarkdownLoader,
+    UnstructuredRSTLoader,
+)
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -18,6 +21,12 @@ try:
     from icecream import ic
 except ImportError:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
+
+
+def _metadata_func(record: dict, metadata: dict) -> dict:
+    metadata["url"] = record["url"]
+    metadata["name"] = record["name"]
+    return metadata
 
 
 def get_user_starred_repos(
@@ -43,33 +52,33 @@ def get_repo_contents(
 ) -> List[Dict]:
     repo_contents = []
     for repo in track(repos, description="Reading the stars..."):
-        content = {}
-        content["name"] = repo.name
-        content["url"] = repo.html_url
+        repo_info = {}
+        repo_info["name"] = repo.name
+        repo_info["url"] = repo.html_url
 
         if (description := repo.description) is not None:
-            content["description"] = description
+            repo_info["description"] = description
 
         if not (topics := repo.get_topics()) == []:
-            content["topics"] = topics
+            repo_info["topics"] = topics
 
         if include_readmes:
-            content["readme"] = {}
+            repo_info["readme"] = {}
             try:
                 readme = repo.get_contents("README.md")
-                content["readme"]["type"] = "md"
-                content["readme"]["content"] = readme.decoded_content.decode("utf-8")
+                repo_info["readme"]["type"] = "md"
+                repo_info["readme"]["content"] = readme.decoded_content.decode("utf-8")
             except UnknownObjectException:
                 try:
                     readme = repo.get_contents("README.rst")
-                    content["readme"]["type"] = "rst"
-                    content["readme"]["content"] = readme.decoded_content.decode(
+                    repo_info["readme"]["type"] = "rst"
+                    repo_info["readme"]["content"] = readme.decoded_content.decode(
                         "utf-8"
                     )
                 except UnknownObjectException:
                     continue
 
-        repo_contents.append(content)
+        repo_contents.append(repo_info)
 
     return repo_contents
 
@@ -107,10 +116,18 @@ def prepare_topic_documents(
 
     documents = []
     for file_path in track(file_paths, description="Loading topics..."):
-        loaded_document = JSONLoader(file_path, jq_schema=".topics", text_content=False)
-        # only extend the document list if page_content is not ''
-        if loaded_document.load()[0].page_content != "":
-            documents.extend(loaded_document.load())
+        loader = JSONLoader(
+            file_path,
+            jq_schema=".",
+            content_key="topics",
+            metadata_func=_metadata_func,
+            text_content=False,
+        )
+        if (loaded := loader.load())[0].page_content != "":
+            # set metadata url of loaded document to be the url of the repo
+            loaded[0].metadata["url"] = "test url"
+            ic(loaded)
+            documents.extend(loaded)
 
     return documents
 
@@ -124,10 +141,15 @@ def prepare_description_documents(
 
     documents = []
     for file_path in track(file_paths, description="Loading descriptions..."):
-        loaded_document = JSONLoader(file_path, jq_schema=".description")
+        loader = JSONLoader(
+            file_path,
+            jq_schema=".",
+            content_key="description",
+            metadata_func=_metadata_func,
+        )
         # only extend the document list if page_content is not ''
-        if loaded_document.load()[0].page_content != "":
-            documents.extend(loaded_document.load())
+        if loader.load()[0].page_content != "":
+            documents.extend(loader.load())
 
     return documents
 
@@ -163,7 +185,6 @@ def prepare_readme_documents(
                     loaded_document = UnstructuredMarkdownLoader(
                         repo_readmes_dir + f"/{repo_name}.md",
                     )
-
                     documents.extend(loaded_document.load())
                 elif repo_content["readme"]["type"] == "rst":
                     # write RST to file
