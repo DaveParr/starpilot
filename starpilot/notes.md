@@ -36,3 +36,13 @@ vectorstore_retrival = Chroma(
         },
     )
 ```
+
+## Anti-pattern? - multiple document loaders for different document types
+
+It's problematic to assume that because there are so many types of document loader, that the correct architecture is to upload each 'type' of document related to a single repo with a different model.
+
+This is because:
+* each call to create the document will be sequence 1 of 1
+* it is harder to implement similar metadata needs without code repetition
+
+Instead structure the response from the GitHub repo into a sensible set of json records that can be iterated over and uploaded to a single document loader and pass at the database.

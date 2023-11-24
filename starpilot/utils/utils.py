@@ -16,6 +16,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from rich.progress import track
 from rich.table import Table
+from enum import Enum
 
 try:
     from icecream import ic
@@ -26,6 +27,7 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
 def _metadata_func(record: dict, metadata: dict) -> dict:
     metadata["url"] = record["url"]
     metadata["name"] = record["name"]
+    metadata["owner"] = record["owner"]
     return metadata
 
 
@@ -50,11 +52,20 @@ def get_user_starred_repos(
 def get_repo_contents(
     repos: List[Repository], include_readmes: bool, g: Github
 ) -> List[Dict]:
-    repo_contents = []
+    repo_infos = []
     for repo in track(repos, description="Reading the stars..."):
         repo_info = {}
+        repo_slug = repo.full_name
+        repo_info["id"] = repo_slug
         repo_info["name"] = repo.name
         repo_info["url"] = repo.html_url
+
+        if (owner := repo.owner.name) is not None:
+            repo_info["owner"] = owner
+
+        if (repo.organization) is not None:
+            if (organization := repo.organization.name) is not None:
+                repo_info["organization"] = organization
 
         if (description := repo.description) is not None:
             repo_info["description"] = description
@@ -78,9 +89,36 @@ def get_repo_contents(
                 except UnknownObjectException:
                     continue
 
-        repo_contents.append(repo_info)
+        repo_info["vectorstore_document"] = []
 
-    return repo_contents
+        repo_info["vectorstore_document"].append(
+            {"content": repo_info.get("name"), "content_type": "repo"}
+        )
+
+        if repo_info.get("description"):
+            repo_info["vectorstore_document"].append(
+                {
+                    "content": repo_info.get("description"),
+                    "content_type": "description",
+                }
+            )
+
+        if repo_info.get("topics"):
+            repo_info["vectorstore_document"].append(
+                {
+                    "content": " ".join(repo_info.get("topics")),
+                    "content_type": "topics",
+                }
+            )
+
+        # add the repo url to all the documents
+        for document in repo_info["vectorstore_document"]:
+            document["url"] = repo_info["url"]
+            document["name"] = repo_slug
+
+        repo_infos.append(repo_info)
+
+    return repo_infos
 
 
 def save_repo_contents_to_disk(
@@ -93,23 +131,48 @@ def save_repo_contents_to_disk(
         os.makedirs(repo_contents_dir)
 
     for repo in track(repo_contents, description="Mapping the stars..."):
-        if set(repo.keys()) == {"name", "url"}:
-            # This is a repo with no useful content, so we can skip it
-            continue
-        else:
-            try:
-                repo_name = repo["name"]
-                repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
-                with open(repo_write_path, "w") as f:
-                    json.dump(repo, f)
-            except Exception as e:
-                raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
+        try:
+            repo_name = repo["name"]
+            repo_write_path = os.path.join(repo_contents_dir, repo_name + ".json")
+            with open(repo_write_path, "w") as f:
+                json.dump(repo, f)
+        except Exception as e:
+            raise Exception(f"Failed to write repo {repo_name} to disk: {e}")
+
+
+def prepare_documents(
+    repo_contents_dir: str = "./repo_content",
+) -> List[Document]:
+    def _metadata_func_new(record: dict, metadata: dict) -> dict:
+        metadata["url"] = record.get("url")
+        metadata["name"] = record.get("name")
+        metadata["content_type"] = record.get("content_type")
+        return metadata
+
+    file_paths = []
+    for file in os.listdir(repo_contents_dir):
+        file_paths.append(os.path.join(repo_contents_dir, file))
+
+    documents = []
+    for file_path in track(file_paths, description="Loading documents..."):
+        loader = JSONLoader(
+            file_path,
+            jq_schema=".vectorstore_document[]",
+            content_key="content",
+            metadata_func=_metadata_func_new,
+            text_content=False,
+        )
+        if (loaded := loader.load())[
+            0
+        ].page_content != "":  # only extend the document list if page_content is not ''
+            documents.extend(loaded)
+
+    return documents
 
 
 def prepare_topic_documents(
     repo_contents_dir: str = "./repo_content",
 ) -> List[Document]:
-    # Never run, probably broken
     file_paths = []
     for file in os.listdir(repo_contents_dir):
         file_paths.append(os.path.join(repo_contents_dir, file))
@@ -123,10 +186,9 @@ def prepare_topic_documents(
             metadata_func=_metadata_func,
             text_content=False,
         )
-        if (loaded := loader.load())[0].page_content != "":
-            # set metadata url of loaded document to be the url of the repo
-            loaded[0].metadata["url"] = "test url"
-            ic(loaded)
+        if (loaded := loader.load())[
+            0
+        ].page_content != "":  # only extend the document list if page_content is not ''
             documents.extend(loaded)
 
     return documents
@@ -147,9 +209,10 @@ def prepare_description_documents(
             content_key="description",
             metadata_func=_metadata_func,
         )
-        # only extend the document list if page_content is not ''
-        if loader.load()[0].page_content != "":
-            documents.extend(loader.load())
+        if (loaded := loader.load())[
+            0
+        ].page_content != "":  # only extend the document list if page_content is not ''
+            documents.extend(loaded)
 
     return documents
 
@@ -209,12 +272,27 @@ def prepare_readme_documents(
     return splits
 
 
+class SearchMethods(Enum):
+    similarity = "similarity"
+    similarity_score_threshold = "similarity_score_threshold"
+    mmr = "mmr"
+
+
 def create_retriever(
     vectorstore_path: str,
     k: int,
-    method: str = "similarity",
+    method: SearchMethods = "similarity",
     score_threshold: float = 0.3,
-) -> Chroma:
+):
+    """
+    Create a retriever from a vectorstore
+
+    Args:
+        vectorstore_path (str): The path to the vectorstore
+        k (int): The number of results to return
+        method (str): The search method to use
+        score_threshold (float): The similarity threshold to use
+    """
     return Chroma(
         persist_directory=vectorstore_path,
         embedding_function=GPT4AllEmbeddings(),  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663
@@ -230,12 +308,17 @@ def create_retriever(
 def create_results_table(response: dict) -> Table:
     table = Table(title="Source Documents")
 
-    table.add_column("Page Content")
-    table.add_column("Source")
+    table.add_column("Document")
+    table.add_column("Repo")
+    table.add_column("Location")
+    table.add_column("URL")
 
     for source_document in response:
         table.add_row(
-            source_document.page_content, source_document.metadata.get("source")
+            source_document.page_content,
+            source_document.metadata.get("name"),
+            source_document.metadata.get("content_type"),
+            source_document.metadata.get("url"),
         )
 
     return table

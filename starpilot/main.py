@@ -76,19 +76,12 @@ def read(
         shutil.rmtree(vectorstore_path)
 
     # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
-    # TODO: Set the document id to be specific to the repo, and then have the topic, description, and readme to be sequenced together
-    repo_descriptions = utils.prepare_description_documents()
+    # IDEA: Compare the results of the existing vectorstore to the results of the GitHub API and only CRUD the files that have changed
+
+    repo_documents = utils.prepare_documents()
 
     Chroma.from_documents(
-        documents=repo_descriptions,
-        embedding=GPT4AllEmbeddings(disallowed_special=()),
-        persist_directory=vectorstore_path,
-    )
-
-    repo_topics = utils.prepare_topic_documents()
-
-    Chroma.from_documents(
-        documents=repo_topics,
+        documents=repo_documents,
         embedding=GPT4AllEmbeddings(disallowed_special=()),
         persist_directory=vectorstore_path,
     )
@@ -103,16 +96,12 @@ def read(
         )
 
 
-class SearchMethods(Enum):
-    similarity = "similarity"
-    similarity_score_threshold = "similarity_score_threshold"
-    mmr = "mmr"
-
-
 @app.command()
 def shoot(
     query: str,
-    method: SearchMethods = typer.Option("similarity", help="The search method to use"),
+    method: utils.SearchMethods = typer.Option(
+        "similarity", help="The search method to use"
+    ),
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
@@ -136,14 +125,12 @@ def shoot(
 
     results = retriever.get_relevant_documents(query)
 
-    print(results)
-
     table = utils.create_results_table(results)
 
     print(table)
 
 
-class Model(Enum):
+class LLMModel(Enum):
     openorca = "openorca"
     orcamini = "orcamini"
     instruct = "instruct"
@@ -164,11 +151,13 @@ def fortuneteller(
     threshold: Optional[float] = typer.Option(
         0.3, help="The similarity threshold to use"
     ),
-    method: SearchMethods = typer.Option("similarity", help="The search method to use"),
+    method: utils.SearchMethods = typer.Option(
+        "similarity", help="The search method to use"
+    ),
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
-    model: Model = typer.Option("openorca", help="The model to use for the answer"),
+    model: LLMModel = typer.Option("openorca", help="The model to use for the answer"),
 ):
     """
     Talk to the fortune teller about your stars
@@ -183,6 +172,7 @@ def fortuneteller(
         )
 
     # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
+    # FIXME: Once called, this can't be cancelled with ctrl + c. Might be as there is no callback?
 
     chain = RetrievalQA.from_chain_type(
         GPT4All(model=model_path),
@@ -196,13 +186,12 @@ def fortuneteller(
         chain_type_kwargs={
             "prompt": PromptTemplate(
                 input_variables=["context", "question"],
-                template="""
-    You are an AI assitant with access to my GitHub starred repos. 
-    Decide which repos are the relevant repos from {context} to answer the question: 
-    {question} and summarise why they are relevant to the topics of the {question}.
+                template="""You are an AI assitant with access to my GitHub starred repos. 
+                    Decide which repos are the relevant repos from {context} to answer the question: 
+                    {question} and summarise why they are relevant to the topics of the {question}.
 
-    If the repos are not relevant to the question: {question} ignore them. 
-    """,
+                    If the repos are not relevant to the question: {question} ignore them. 
+                    """,
             )
         },
     )
