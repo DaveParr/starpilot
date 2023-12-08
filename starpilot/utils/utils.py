@@ -7,8 +7,11 @@ from typing import Dict, List, Optional
 import structlog
 from github import Github, UnknownObjectException
 from github.Repository import Repository
-from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
-                                        UnstructuredRSTLoader)
+from langchain.document_loaders import (
+    JSONLoader,
+    UnstructuredMarkdownLoader,
+    UnstructuredRSTLoader,
+)
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -103,10 +106,22 @@ def get_repo_contents(
 
         repo_info["vectorstore_document"] = []
 
+        # use description as main content, and include topics and languages only if present
+
         if repo_info.get("description"):
+            content = {
+                "name": repo_info.get("name"),
+                "description": repo_info.get("description"),
+            }
+            if repo_info.get("topics"):
+                content["topics"] = repo_info.get("topics")
+            if repo_info.get("languages"):
+                content["languages"] = repo_info.get("languages")
+
             repo_info["vectorstore_document"].append(
                 {
-                    "content": repo_info.get("description"),
+                    # use description as content, and topics and languages if present
+                    "content": content,
                     "url": repo_info.get("url"),
                     "name": repo_info.get("name"),
                     "topics": repo_info.get("topics"),
@@ -168,9 +183,7 @@ def prepare_documents(
             metadata_func=_metadata_func_new,
             text_content=False,
         )
-        if (loaded := loader.load())[
-            0
-        ].page_content != "":  # only extend the document list if page_content is not ''
+        if (loaded := loader.load())[0].page_content != "":
             documents.extend(loaded)
 
     return documents
