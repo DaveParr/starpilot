@@ -7,9 +7,16 @@ import typer
 from github import Github
 from icecream import install
 from langchain.chains import RetrievalQA
+from langchain.chains.query_constructor.base import (
+    AttributeInfo,
+    get_query_constructor_prompt,
+    load_query_constructor_runnable,
+)
+from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.llms import GPT4All
 from langchain.prompts import PromptTemplate
+from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.vectorstores import Chroma
 from rich import print
 from rich.panel import Panel
@@ -123,11 +130,7 @@ def shoot(
         score_threshold=threshold,
     )
 
-    results = retriever.get_relevant_documents(query)
-
-    table = utils.create_results_table(results)
-
-    print(table)
+    print(utils.create_results_table(retriever.get_relevant_documents(query)))
 
 
 class LLMModel(Enum):
@@ -146,66 +149,61 @@ class LLMModel(Enum):
 
 
 @app.command()
-def fortuneteller(
-    question: str,
-    threshold: Optional[float] = typer.Option(
-        0.3, help="The similarity threshold to use"
-    ),
-    method: utils.SearchMethods = typer.Option(
-        "similarity", help="The search method to use"
-    ),
-    k: Optional[int] = typer.Option(
-        15, help="Number of results to fetch from the vectorstore"
-    ),
+def astrologer(
+    query: str,
     model: LLMModel = typer.Option("openorca", help="The model to use for the answer"),
+    enable_limit: Optional[bool] = typer.Option(
+        True,
+        help="Enable the retriever to limit the number of documents returned based on the question text",
+    ),
 ):
     """
-    Talk to the fortune teller about your stars
+    Use SelfQueryRetriever to self-query the vectorstore
     """
 
-    model_path = model.to_path()
-
-    # error handling for if the model doesn't exist
-    if not os.path.exists(model_path):
-        raise Exception(
-            f"Please download the model {model.value} from https://gpt4all.io/ and place it in {model_path}"
-        )
-
-    # IDEA: self-querying:: https://python.langchain.com/docs/modules/data_connection/retrievers/self_query
-    # FIXME: Once called, this can't be cancelled with ctrl + c. Might be as there is no callback?
-
-    chain = RetrievalQA.from_chain_type(
-        GPT4All(model=model_path),
-        retriever=utils.create_retriever(
-            vectorstore_path=VECTORSTORE_PATH,
-            k=k,
-            method=method.value,
-            score_threshold=threshold,
+    attribute_info = [
+        # IDEA: create valid specific values on data load for each users content
+        AttributeInfo(
+            name="languages",
+            description="the programming languages of a repo. Example: ['python', 'R', 'Rust']",
+            type="string",
         ),
-        return_source_documents=True,
-        chain_type_kwargs={
-            "prompt": PromptTemplate(
-                input_variables=["context", "question"],
-                template="""You are an AI assitant with access to my GitHub starred repos. 
-                    Decide which repos are the relevant repos from {context} to answer the question: 
-                    {question} and summarise why they are relevant to the topics of the {question}.
+        AttributeInfo(
+            name="name",
+            description="the name of a repository. Example: 'langchain'",
+            type="string",
+        ),
+        AttributeInfo(
+            name="topics",
+            description="the topics a repository is tagged with. Example: ['data-science', 'machine-learning', 'python', 'web-development', 'tidyverse']",
+            type="string",
+        ),
+        AttributeInfo(
+            name="url",
+            description="the url of a repository on GitHub",
+            type="string",
+        ),
+    ]
+    document_content_description = "content describing a repository on GitHub"
 
-                    If the repos are not relevant to the question: {question} ignore them. 
-                    """,
-            )
-        },
+    prompt = get_query_constructor_prompt(document_content_description, attribute_info)
+
+    chain = load_query_constructor_runnable(
+        ChatOpenAI(
+            model="gpt-3.5-turbo",
+            temperature=0,
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+        ),
+        document_content_description,
+        attribute_info,
     )
 
-    with Progress(SpinnerColumn(), TextColumn("{task.description}")) as progress:
-        task = progress.add_task("[cyan]Thinking...", total=100)
+    retriever = SelfQueryRetriever(
+        query_constructor=chain,
+        vectorstore=Chroma(
+            persist_directory=VECTORSTORE_PATH, embedding_function=GPT4AllEmbeddings()
+        ),
+        verbose=True,
+    )
 
-        while not progress.finished:
-            response = chain.invoke(question)
-
-            progress.update(task, advance=100)
-
-    print(Panel(response.get("result")))
-
-    table = utils.create_results_table(response.get("source_documents"))
-
-    print(table)
+    return print(utils.create_results_table(retriever.get_relevant_documents(query)))

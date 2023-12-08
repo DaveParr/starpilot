@@ -18,7 +18,7 @@ repo_names = [
     "starship/starship",  # totally fine
     "django/django",  # description and topic but readme is rst
     "StateOfCalifornia/CalCAT",  # description but no topic
-    "joeycastillo/The-Open-Book",  # no description or topic
+    "joeycastillo/The-Open-Book",  # no description or topic or language
     "vicenews/shot-by-cops",  # no description or topic
     "pytorch/pytorch",  # no owner or organisation
 ]
@@ -26,10 +26,6 @@ repo_names = [
 repo_list = []
 
 pytorch_repo = GITHUB_CONNECTION.get_repo("pytorch/pytorch")
-
-print(pytorch_repo.organization.name)
-
-print(pytorch_repo.owner.name)
 
 
 for repo in repo_names:
@@ -62,6 +58,6 @@ retriever = utils.create_retriever(
     method="similarity",
 )
 
-response = retriever.get_relevant_documents("machine learning")
+response = retriever.get_relevant_documents("starship/starship")
 
 print(response)

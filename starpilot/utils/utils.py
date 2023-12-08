@@ -1,27 +1,27 @@
 import json
 import os
 import shutil
+from enum import Enum
 from typing import Dict, List, Optional
 
+import structlog
 from github import Github, UnknownObjectException
 from github.Repository import Repository
-from langchain.document_loaders import (
-    JSONLoader,
-    UnstructuredMarkdownLoader,
-    UnstructuredRSTLoader,
-)
+from langchain.document_loaders import (JSONLoader, UnstructuredMarkdownLoader,
+                                        UnstructuredRSTLoader)
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from rich.progress import track
 from rich.table import Table
-from enum import Enum
 
 try:
     from icecream import ic
 except ImportError:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
+
+logger = structlog.get_logger(__name__)
 
 
 def _metadata_func(record: dict, metadata: dict) -> dict:
@@ -66,9 +66,21 @@ def get_repo_contents(
         if (repo.organization) is not None:
             if (organization := repo.organization.name) is not None:
                 repo_info["organization"] = organization
+            else:
+                logger.info("No organization name", repo=repo_slug)
+
+        # get the repo languages
+        repo_info["languages"] = []
+        for language in repo.get_languages():
+            repo_info["languages"].append(language)
+
+        if len(repo_info["languages"]) == 0:
+            logger.info("No languages", repo=repo_slug)
 
         if (description := repo.description) is not None:
             repo_info["description"] = description
+        else:
+            logger.info("No description", repo=repo_slug)
 
         if not (topics := repo.get_topics()) == []:
             repo_info["topics"] = topics
@@ -91,32 +103,21 @@ def get_repo_contents(
 
         repo_info["vectorstore_document"] = []
 
-        repo_info["vectorstore_document"].append(
-            {"content": repo_info.get("name"), "content_type": "repo"}
-        )
-
         if repo_info.get("description"):
             repo_info["vectorstore_document"].append(
                 {
                     "content": repo_info.get("description"),
-                    "content_type": "description",
+                    "url": repo_info.get("url"),
+                    "name": repo_info.get("name"),
+                    "topics": repo_info.get("topics"),
+                    "languages": repo_info.get("languages"),
                 }
             )
 
-        if repo_info.get("topics"):
-            repo_info["vectorstore_document"].append(
-                {
-                    "content": " ".join(repo_info.get("topics")),
-                    "content_type": "topics",
-                }
-            )
-
-        # add the repo url to all the documents
-        for document in repo_info["vectorstore_document"]:
-            document["url"] = repo_info["url"]
-            document["name"] = repo_slug
-
-        repo_infos.append(repo_info)
+            repo_infos.append(repo_info)
+            logger.debug("Using repo", repo=repo_slug)
+        else:
+            logger.warning("Repo has no relevant information to use", repo=repo_slug)
 
     return repo_infos
 
@@ -146,7 +147,11 @@ def prepare_documents(
     def _metadata_func_new(record: dict, metadata: dict) -> dict:
         metadata["url"] = record.get("url")
         metadata["name"] = record.get("name")
-        metadata["content_type"] = record.get("content_type")
+
+        if (topics := record.get("topics")) is not None:
+            metadata["topics"] = " ".join(topics)
+        if (languages := record.get("languages")) is not None:
+            metadata["languages"] = " ".join(languages)
         return metadata
 
     file_paths = []
@@ -155,6 +160,7 @@ def prepare_documents(
 
     documents = []
     for file_path in track(file_paths, description="Loading documents..."):
+        logger.debug("Loading document", file=file_path)
         loader = JSONLoader(
             file_path,
             jq_schema=".vectorstore_document[]",
@@ -310,15 +316,15 @@ def create_results_table(response: dict) -> Table:
 
     table.add_column("Document")
     table.add_column("Repo")
-    table.add_column("Location")
     table.add_column("URL")
+    table.add_column("Topic")
 
     for source_document in response:
         table.add_row(
             source_document.page_content,
             source_document.metadata.get("name"),
-            source_document.metadata.get("content_type"),
             source_document.metadata.get("url"),
+            source_document.metadata.get("topics"),
         )
 
     return table

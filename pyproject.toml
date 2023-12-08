@@ -20,6 +20,7 @@ markdown = "^3.5.1"
 langchainhub = "^0.1.13"
 pypandoc = "^1.12"
 jq = "^1.6.0"
+openai = "0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.1"
