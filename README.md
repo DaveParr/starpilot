@@ -23,7 +23,7 @@ Starpilot helps this problem by allowing you to rediscover GitHub repos you had 
 1. `poetry install`
 
 You will need to have a .env file with
-- a [GitHub personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) saved to a `.env` file in the root of the project. 
+- a [GitHub personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) saved to a `.env` file in the root of the project. This should have the user> read:user scope permission.
 - a [OpenAI API key](https://platform.openai.com/api-keys) saved to a `.env` file in the root of the project.
 
 ```

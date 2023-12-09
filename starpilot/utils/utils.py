@@ -123,6 +123,7 @@ def get_repo_contents(
                     # use description as content, and topics and languages if present
                     "content": content,
                     "url": repo_info.get("url"),
+                    "description": repo_info.get("description"),
                     "name": repo_info.get("name"),
                     "topics": repo_info.get("topics"),
                     "languages": repo_info.get("languages"),
@@ -162,7 +163,7 @@ def prepare_documents(
     def _metadata_func_new(record: dict, metadata: dict) -> dict:
         metadata["url"] = record.get("url")
         metadata["name"] = record.get("name")
-
+        metadata["description"] = record.get("description")
         if (topics := record.get("topics")) is not None:
             metadata["topics"] = " ".join(topics)
         if (languages := record.get("languages")) is not None:
@@ -184,53 +185,6 @@ def prepare_documents(
             text_content=False,
         )
         if (loaded := loader.load())[0].page_content != "":
-            documents.extend(loaded)
-
-    return documents
-
-
-def prepare_topic_documents(
-    repo_contents_dir: str = "./repo_content",
-) -> List[Document]:
-    file_paths = []
-    for file in os.listdir(repo_contents_dir):
-        file_paths.append(os.path.join(repo_contents_dir, file))
-
-    documents = []
-    for file_path in track(file_paths, description="Loading topics..."):
-        loader = JSONLoader(
-            file_path,
-            jq_schema=".",
-            content_key="topics",
-            metadata_func=_metadata_func,
-            text_content=False,
-        )
-        if (loaded := loader.load())[
-            0
-        ].page_content != "":  # only extend the document list if page_content is not ''
-            documents.extend(loaded)
-
-    return documents
-
-
-def prepare_description_documents(
-    repo_contents_dir: str = "./repo_content",
-) -> List[Document]:
-    file_paths = []
-    for file in os.listdir(repo_contents_dir):
-        file_paths.append(os.path.join(repo_contents_dir, file))
-
-    documents = []
-    for file_path in track(file_paths, description="Loading descriptions..."):
-        loader = JSONLoader(
-            file_path,
-            jq_schema=".",
-            content_key="description",
-            metadata_func=_metadata_func,
-        )
-        if (loaded := loader.load())[
-            0
-        ].page_content != "":  # only extend the document list if page_content is not ''
             documents.extend(loaded)
 
     return documents
@@ -327,17 +281,19 @@ def create_retriever(
 def create_results_table(response: dict) -> Table:
     table = Table(title="Source Documents")
 
-    table.add_column("Document")
     table.add_column("Repo")
+    table.add_column("Description")
     table.add_column("URL")
     table.add_column("Topic")
+    table.add_column("Language")
 
     for source_document in response:
         table.add_row(
-            source_document.page_content,
             source_document.metadata.get("name"),
+            source_document.metadata.get("description"),
             source_document.metadata.get("url"),
             source_document.metadata.get("topics"),
+            source_document.metadata.get("languages"),
         )
 
     return table

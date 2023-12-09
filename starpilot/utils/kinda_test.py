@@ -5,6 +5,7 @@ import github
 import utils
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.vectorstores import Chroma
+from rich import print
 
 dotenv.load_dotenv()
 
@@ -42,8 +43,6 @@ utils.save_repo_contents_to_disk(content, "./tmp")
 
 generic_documents = utils.prepare_documents("./tmp")
 
-print(generic_documents)
-
 
 Chroma.from_documents(
     documents=generic_documents,
@@ -60,4 +59,5 @@ retriever = utils.create_retriever(
 
 response = retriever.get_relevant_documents("starship/starship")
 
-print(response)
+
+print(utils.create_results_table(response))
