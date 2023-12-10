@@ -184,18 +184,26 @@ def astrologer(
             type="string",
         ),
     ]
-    document_content_description = "content describing a repository on GitHub"
 
-    prompt = get_query_constructor_prompt(document_content_description, attribute_info)
+    document_contents = "content describing a repository on GitHub"
 
     chain = load_query_constructor_runnable(
-        ChatOpenAI(
+        llm=ChatOpenAI(
             model="gpt-3.5-turbo",
             temperature=0,
             openai_api_key=os.getenv("OPENAI_API_KEY"),
         ),
-        document_content_description,
-        attribute_info,
+        document_contents=document_contents,
+        attribute_info=attribute_info,
+        fix_invalid=True,
+        allowed_comparators=[
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+        ],  # set to chroma allowed comparators, if this changes, these can (*should*) be updated
     )
 
     retriever = SelfQueryRetriever(
