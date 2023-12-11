@@ -11,7 +11,7 @@ starpilot = "starpilot.main:app"
 [tool.poetry.dependencies]
 python = "^3.10"
 typer = {extras = ["all"], version = "^0.9.0"}
-langchain = "^0.0.331"
+langchain = "^0.0"
 gpt4all = "^2.0.2"
 chromadb = "^0.4.15"
 pygithub = "^2.1.1"

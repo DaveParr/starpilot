@@ -2,6 +2,7 @@ import os
 import shutil
 from enum import Enum
 
+import click
 import dotenv
 import typer
 from github import Github
@@ -48,6 +49,25 @@ except Exception:
 
 # Typer setup
 app = typer.Typer()
+
+
+@app.command()
+def setup():
+    """
+    Setup the CLI with the required API keys
+    """
+
+    if os.path.exists(".env"):
+        os.remove(".env")
+
+    typer.echo("Please enter your GitHub API key")
+    github_api_key = typer.prompt('GitHub API key with quotes e.g. "ghp_..."')
+    typer.echo("Please enter your OpenAI API key")
+    openai_api_key = typer.prompt('OpenAI API key with quotes e.g. "sk_..."')
+
+    with open(".env", "w") as f:
+        f.write(f"GITHUB_API_KEY={github_api_key}\n")
+        f.write(f"OPENAI_API_KEY={openai_api_key}\n")
 
 
 # Typer commands
@@ -161,6 +181,11 @@ def astrologer(
     Use SelfQueryRetriever to self-query the vectorstore
     """
 
+    if (openai_api_key := os.getenv("OPENAI_API_KEY")) is None:
+        raise Exception(
+            "Please create a .env file with your OpenAI API key with the `setup` command"
+        )
+
     attribute_info = [
         # IDEA: create valid specific values on data load for each users content
         AttributeInfo(
@@ -191,7 +216,7 @@ def astrologer(
         llm=ChatOpenAI(
             model="gpt-3.5-turbo",
             temperature=0,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_key=openai_api_key,
         ),
         document_contents=document_contents,
         attribute_info=attribute_info,
@@ -214,4 +239,4 @@ def astrologer(
         verbose=True,
     )
 
-    return print(utils.create_results_table(retriever.get_relevant_documents(query)))
+    print(utils.create_results_table(retriever.get_relevant_documents(query)))
