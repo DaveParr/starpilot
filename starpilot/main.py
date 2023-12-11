@@ -1,26 +1,19 @@
 import os
 import shutil
-from enum import Enum
 
-import click
 import dotenv
+import structlog
 import typer
 from github import Github
-from langchain.chains import RetrievalQA
 from langchain.chains.query_constructor.base import (
     AttributeInfo,
-    get_query_constructor_prompt,
     load_query_constructor_runnable,
 )
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import GPT4AllEmbeddings
-from langchain.llms import GPT4All
-from langchain.prompts import PromptTemplate
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.vectorstores import Chroma
 from rich import print
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Optional
 
 import starpilot.utils.utils as utils
@@ -33,6 +26,7 @@ try:
 except Exception as e:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
+logger = structlog.get_logger(__name__)
 
 # Environment variables
 dotenv.load_dotenv()
@@ -78,6 +72,10 @@ def read(
     """
     Read stars from GitHub
     """
+
+    # issue warniong if github doesn't have api key set
+    if (os.getenv("GITHUB_API_KEY")) is None:
+        typer.echo("Warning: GitHub API key not set. You may be rate limited by GitHub")
 
     repos = utils.get_user_starred_repos(
         user=user,

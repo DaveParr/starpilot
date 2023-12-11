@@ -37,6 +37,11 @@ def _metadata_func(record: dict, metadata: dict) -> dict:
 def get_user_starred_repos(
     user: str, g: Github, num_repos: Optional[int] = None
 ) -> List[Repository]:
+    """
+    Get the starred repos for a user
+
+    If there is no github api key set, this will start to work, but will be rapidly rate limited.
+    """
     starred_repos = []
     for repo in track(
         g.get_user(user).get_starred(), description="Spotting the stars..."
