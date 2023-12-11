@@ -53,7 +53,7 @@ def get_user_starred_repos(
 
 
 def get_repo_contents(
-    repos: List[Repository], include_readmes: bool, g: Github
+    repos: List[Repository], g: Github, include_readmes: bool = False
 ) -> List[Dict]:
     repo_infos = []
     for repo in track(repos, description="Reading the stars..."):

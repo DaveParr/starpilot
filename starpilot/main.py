@@ -6,7 +6,6 @@ import click
 import dotenv
 import typer
 from github import Github
-from icecream import install
 from langchain.chains import RetrievalQA
 from langchain.chains.query_constructor.base import (
     AttributeInfo,
@@ -28,11 +27,11 @@ import starpilot.utils.utils as utils
 
 # Setup for icecream
 try:
-    from icecream import ic
-except ImportError:  # Graceful fallback if IceCream isn't installed.
-    ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
+    from icecream import ic, install
 
-install()
+    install()
+except Exception as e:  # Graceful fallback if IceCream isn't installed.
+    ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
 
 # Environment variables
@@ -74,10 +73,7 @@ def setup():
 @app.command()
 def read(
     user: str,
-    num_repos: Optional[int] = typer.Option(500, help="Number of repositories to load"),
-    include_readmes: Optional[bool] = typer.Option(
-        False, help="Include READMEs in the vectorstore"
-    ),
+    k: Optional[int] = typer.Option(500, help="Number of repositories to load"),
 ) -> None:
     """
     Read stars from GitHub
@@ -86,12 +82,11 @@ def read(
     repos = utils.get_user_starred_repos(
         user=user,
         g=GITHUB_CONNECTION,
-        num_repos=num_repos,
+        num_repos=k,
     )
 
     repo_contents = utils.get_repo_contents(
         repos=repos,
-        include_readmes=include_readmes,
         g=GITHUB_CONNECTION,
     )
 
@@ -112,15 +107,6 @@ def read(
         embedding=GPT4AllEmbeddings(disallowed_special=()),
         persist_directory=vectorstore_path,
     )
-
-    if include_readmes:
-        readme_documents = utils.prepare_readme_documents()
-
-        Chroma.from_documents(
-            documents=readme_documents,
-            embedding=GPT4AllEmbeddings(disallowed_special=()),
-            persist_directory=vectorstore_path,
-        )
 
 
 @app.command()
@@ -153,29 +139,9 @@ def shoot(
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
 
 
-class LLMModel(Enum):
-    openorca = "openorca"
-    orcamini = "orcamini"
-    instruct = "instruct"
-    falcon = "falcon"
-
-    def to_path(self):
-        return {
-            "openorca": "models/mistral-7b-openorca.Q4_0.gguf",
-            "orcamini": "models/orca-mini-3b-gguf2-q4_0.gguf",
-            "instruct": "models/mistral-7b-instruct-v0.1.Q4_0.gguf",
-            "falcon": "models/gpt4all-falcon-q4_0.gguf",
-        }[self.value]
-
-
 @app.command()
 def astrologer(
     query: str,
-    model: LLMModel = typer.Option("openorca", help="The model to use for the answer"),
-    enable_limit: Optional[bool] = typer.Option(
-        True,
-        help="Enable the retriever to limit the number of documents returned based on the question text",
-    ),
 ):
     """
     Use SelfQueryRetriever to self-query the vectorstore

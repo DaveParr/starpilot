@@ -6,6 +6,7 @@ authors = ["Dave Parr <8363743+DaveParr@users.noreply.github.com>"]
 readme = "README.md"
 license = "MIT"
 classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
 ]
@@ -16,10 +17,10 @@ starpilot = "starpilot.main:app"
 [tool.poetry.dependencies]
 python = "^3.10"
 typer = {extras = ["all"], version = "^0.9.0"}
-langchain = "^0.0"
-gpt4all = "^2.0.2"
-chromadb = "^0.4.15"
 pygithub = "^2.1.1"
+langchain = "==0.0.348"
+gpt4all = "^2.0.2"
+chromadb = "0.4.15"
 unstructured = "^0.10.29"
 markdown = "^3.5.1"
 langchainhub = "^0.1.13"
