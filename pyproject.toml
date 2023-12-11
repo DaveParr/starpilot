@@ -4,6 +4,11 @@ version = "0.1.0"
 description = "Discover the hidden power of your GitHub Stars"
 authors = ["Dave Parr <8363743+DaveParr@users.noreply.github.com>"]
 readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
 
 [tool.poetry.scripts]
 starpilot = "starpilot.main:app"

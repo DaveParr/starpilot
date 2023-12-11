@@ -22,6 +22,8 @@ Starpilot helps this problem by allowing you to rediscover GitHub repos you had 
 1. `cd starpilot`
 1. `poetry install`
 
+
+### Setup
 You will need to have a .env file with
 - a [GitHub personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) saved to a `.env` file in the root of the project. This should have the user> read:user scope permission.
 - a [OpenAI API key](https://platform.openai.com/api-keys) saved to a `.env` file in the root of the project.
@@ -30,6 +32,8 @@ You will need to have a .env file with
 GITHUB_API_KEY="ghp_..."
 OPENAI_API_KEY="sk-..."
 ```
+
+The command `starpilot setup` will help you set this up.
 
 You will also need to have downloaded `models/mistral-7b-openorca.Q4_0.gguf` from [GPT4All](https://gpt4all.io/index.html), or an [alternative supported by the `Model` class](https://github.com/DaveParr/starpilot/blob/main/starpilot/main.py#L144) and included it in the `models` directory.
 
@@ -40,23 +44,24 @@ You will also potentially need [Pandoc installed](https://pandoc.org/installing.
 
 [![asciicast](https://asciinema.org/a/622351.svg)](https://asciinema.org/a/622351)
 
-``` bash
-starpilot --help
-❯ starpilot --help
-                                                                                                            
- Usage: starpilot [OPTIONS] COMMAND [ARGS]...                                                               
-                                                                                                            
-╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --install-completion          Install completion for the current shell.                                  │
-│ --show-completion             Show completion for the current shell, to copy it or customize the         │
-│                               installation.                                                              │
-│ --help                        Show this message and exit.                                                │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────────────────────────────────╮
-│ astrologer         Use SelfQueryRetriever to self-query the vectorstore                                  │
-│ read               Read stars from GitHub                                                                │
-│ shoot              Shoot a query at the stars                                                            │
-╰──────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+### Commands
 
+``` bash
+❯ starpilot --help
+                                                                                                                 
+ Usage: starpilot [OPTIONS] COMMAND [ARGS]...                                                                    
+                                                                                                                 
+╭─ Options ─────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                       │
+│ --show-completion             Show completion for the current shell, to copy it or customize the              │
+│                               installation.                                                                   │
+│ --help                        Show this message and exit.                                                     │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ astrologer          Use SelfQueryRetriever to self-query the vectorstore                                      │
+│ read                Read stars from GitHub                                                                    │
+│ setup               Setup the CLI with the required API keys                                                  │
+│ shoot               Shoot a query at the stars                                                                │
+╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 
 ```

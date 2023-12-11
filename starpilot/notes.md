@@ -46,3 +46,7 @@ This is because:
 * it is harder to implement similar metadata needs without code repetition
 
 Instead structure the response from the GitHub repo into a sensible set of json records that can be iterated over and uploaded to a single document loader and pass at the database.
+
+## Comparators are note default across all vectorstores
+
+Chroma only accepts a few comparators, and not all of the ones in the default prompt
