@@ -17,16 +17,15 @@ Starpilot helps this problem by allowing you to rediscover GitHub repos you had 
 
 > This project is in early development and is not yet available on PyPi
 
-1. Fork repo
-1. Clone repo
-1. `cd starpilot`
-1. `poetry install`
+``` bash
+pip install git+https://github.com/DaveParr/starpilot --user
+```
 
 
 ### Setup
 You will need to have a .env file with
 - a [GitHub personal access token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) saved to a `.env` file in the root of the project. This should have the user> read:user scope permission.
-- a [OpenAI API key](https://platform.openai.com/api-keys) saved to a `.env` file in the root of the project.
+- a [OpenAI API key](https://platform.openai.com/api-keys) saved to a `.env` file in the root of the project. This is needed for Self Query in the `astrologer` command, not semantic similarity via the `shoot` command.
 
 ```
 GITHUB_API_KEY="ghp_..."

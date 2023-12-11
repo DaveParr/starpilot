@@ -53,10 +53,21 @@ def setup():
     if os.path.exists(".env"):
         os.remove(".env")
 
-    typer.echo("Please enter your GitHub API key")
-    github_api_key = typer.prompt('GitHub API key with quotes e.g. "ghp_..."')
-    typer.echo("Please enter your OpenAI API key")
-    openai_api_key = typer.prompt('OpenAI API key with quotes e.g. "sk_..."')
+    typer.echo(
+        """
+        Please enter your GitHub API key from https://github.com/settings/tokens
+        This can be scoped to read:user
+        Use quotes e.g. "ghp_..."
+        """
+    )
+    github_api_key = typer.prompt("GitHub API key")
+    typer.echo(
+        """
+        Please enter your OpenAI API key from https://platform.openai.com/api-keys
+        Use quotes e.g. "sk_..."
+        """
+    )
+    openai_api_key = typer.prompt("OpenAI API key")
 
     with open(".env", "w") as f:
         f.write(f"GITHUB_API_KEY={github_api_key}\n")
