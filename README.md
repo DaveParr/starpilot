@@ -17,9 +17,17 @@ Starpilot helps this problem by allowing you to rediscover GitHub repos you had 
 
 > This project is in early development and is not yet available on PyPi
 
+To install the latest version from GitHub run:
+
 ``` bash
 pip install git+https://github.com/DaveParr/starpilot --user
 ```
+To install the latest tagged release (potentially the more stable approach) from GitHub run:
+
+``` bash
+pip install git+https://github.com/DaveParr/starpilot.git@{ tag goes here } --user
+```
+
 
 
 ### Setup
@@ -34,8 +42,11 @@ OPENAI_API_KEY="sk-..."
 
 The command `starpilot setup` will help you set this up.
 
+#### Optional
 
-You will also potentially need [Pandoc installed](https://pandoc.org/installing.html) on your computer if your starred repos contain a `rst` formatted Readme that you want to load into the database which is used by some Python projects. 
+This not required for the CLI to work, but is required if `read` is set to include the `README.MD` content for each repo.
+
+You may potentially need [Pandoc installed](https://pandoc.org/installing.html) on your computer if your starred repos contain a `rst` formatted Readme that you want to load into the database which is used by some Python projects. 
 
 ### Usage
 
