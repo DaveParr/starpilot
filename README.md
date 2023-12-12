@@ -34,8 +34,6 @@ OPENAI_API_KEY="sk-..."
 
 The command `starpilot setup` will help you set this up.
 
-You will also need to have downloaded `models/mistral-7b-openorca.Q4_0.gguf` from [GPT4All](https://gpt4all.io/index.html), or an [alternative supported by the `Model` class](https://github.com/DaveParr/starpilot/blob/main/starpilot/main.py#L144) and included it in the `models` directory.
-
 
 You will also potentially need [Pandoc installed](https://pandoc.org/installing.html) on your computer if your starred repos contain a `rst` formatted Readme that you want to load into the database which is used by some Python projects. 
 
