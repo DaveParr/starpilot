@@ -1,4 +1,5 @@
 import os
+from cProfile import Profile
 
 import dotenv
 import github
@@ -9,6 +10,8 @@ from rich import print
 
 dotenv.load_dotenv()
 
+profile = Profile()
+profile.enable()
 git_hub_key = os.getenv("GITHUB_API_KEY")
 
 GITHUB_CONNECTION = github.Github(git_hub_key)
@@ -17,6 +20,7 @@ GITHUB_CONNECTION = github.Github(git_hub_key)
 
 repo_names = [
     "starship/starship",  # totally fine
+    "DaveParr/starpilot",
     "django/django",  # description and topic but readme is rst
     "StateOfCalifornia/CalCAT",  # description but no topic
     "joeycastillo/The-Open-Book",  # no description or topic or language
@@ -26,38 +30,37 @@ repo_names = [
 
 repo_list = []
 
-pytorch_repo = GITHUB_CONNECTION.get_repo("pytorch/pytorch")
-
-
 for repo in repo_names:
     repo_content = GITHUB_CONNECTION.get_repo(repo)
     repo_list.append(repo_content)
 
-print(repo_list[0].full_name)
 
-repo_descriptions = []
+content = utils.format_repos(repo_list, GITHUB_CONNECTION, False)
 
-content = utils.get_repo_contents(repo_list, False, GITHUB_CONNECTION)
+print(content)
 
-utils.save_repo_contents_to_disk(content, "./tmp")
+# utils.save_repo_contents_to_disk(content, "./tmp")
 
-generic_documents = utils.prepare_documents("./tmp")
-
-
-Chroma.from_documents(
-    documents=generic_documents,
-    embedding=GPT4AllEmbeddings(disallowed_special=()),
-    persist_directory="./tmp",
-)
+# generic_documents = utils.prepare_documents("./tmp")
 
 
-retriever = utils.create_retriever(
-    vectorstore_path="./tmp",
-    k=2,
-    method="similarity",
-)
-
-response = retriever.get_relevant_documents("starship/starship")
+# Chroma.from_documents(
+#     documents=generic_documents,
+#     embedding=GPT4AllEmbeddings(disallowed_special=()),
+#     persist_directory="./tmp",
+# )
 
 
-print(utils.create_results_table(response))
+# retriever = utils.create_retriever(
+#     vectorstore_path="./tmp",
+#     k=2,
+#     method="similarity",
+# )
+
+# response = retriever.get_relevant_documents("starship/starship")
+
+# print(utils.create_results_table(response))
+
+profile.disable()
+
+profile.dump_stats("for.pstats")

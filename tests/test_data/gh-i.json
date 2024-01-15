@@ -1,0 +1,17 @@
+{
+    "name": "gh-i",
+    "nameWithOwner": "gennaro-tedesco/gh-i",
+    "url": "https: //github.com/gennaro-tedesco/gh-i",
+    "description": "🔎 search your github issues interactively",
+    "stargazerCount": 52,
+    "primaryLanguage": "Go",
+    "languages": [
+        "Go"
+    ],
+    "owner": "gennaro-tedesco",
+    "topics": [
+        "gh-extension",
+        "command-line",
+        "go"
+    ]
+}
