@@ -122,36 +122,6 @@ def get_user_starred_repos(username: str, github_api_key: str) -> List:
                                                     Field(name="nodes", fields=["name"])
                                                 ],
                                             ),
-                                            Field(
-                                                name="object",
-                                                alias="READMEmd",
-                                                arguments=[
-                                                    Argument(
-                                                        name="expression",
-                                                        value='"HEAD:README.md"',
-                                                    )
-                                                ],
-                                                fields=[
-                                                    InlineFragment(
-                                                        type="Blob", fields=["text"]
-                                                    ),
-                                                ],
-                                            ),
-                                            Field(
-                                                name="object",
-                                                alias="READMErst",
-                                                arguments=[
-                                                    Argument(
-                                                        name="expression",
-                                                        value='"HEAD:README.rst"',
-                                                    )
-                                                ],
-                                                fields=[
-                                                    InlineFragment(
-                                                        type="Blob", fields=["text"]
-                                                    ),
-                                                ],
-                                            ),
                                         ],
                                     ),
                                 ],
@@ -232,15 +202,6 @@ def format_repo(repo: Dict) -> Dict:
         "topics": [
             topic["topic"]["name"] for topic in repo["repositoryTopics"]["nodes"]
         ],
-        # pick the first readme that is not None
-        "readme": next(
-            (
-                readme["text"]
-                for readme in [repo["READMEmd"], repo["READMErst"]]
-                if readme is not None
-            ),
-            None,
-        ),
     }
 
     # remove keys with None, empty values, or empty strings
