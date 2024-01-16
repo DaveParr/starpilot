@@ -1,138 +1,275 @@
-from unittest.mock import Mock
-
 import pytest
 
-from starpilot.utils.utils import get_repo_contents, get_user_starred_repos
+from starpilot.utils.utils import format_repo, prepare_documents
+
+from langchain.schema.document import Document
 
 
-def test_get_user_starred_repos_mocked():
-    # Mock the necessary objects
-    class MockRepo:
-        def __init__(self, stargazers_count):
-            self.stargazers_count = stargazers_count
+@pytest.fixture(scope="session")
+def pytest_repo():
+    return {
+        "name": "pytest",
+        "nameWithOwner": "pytest-dev/pytest",
+        "owner": {"login": "pytest-dev"},
+        "url": "https://github.com/pytest-dev/pytest",
+        "homepageUrl": "https://pytest.org/",
+        "description": "The pytest framework makes it easy to write small tests, yet scales to support complex functional testing",
+        "repositoryTopics": {
+            "nodes": [
+                {"topic": {"name": "unit-testing"}},
+                {"topic": {"name": "test"}},
+                {"topic": {"name": "testing"}},
+                {"topic": {"name": "python"}},
+                {"topic": {"name": "hacktoberfest"}},
+            ]
+        },
+        "stargazerCount": 10980,
+        "primaryLanguage": {"name": "Python"},
+        "languages": {"nodes": [{"name": "Python"}, {"name": "Gherkin"}]},
+    }
 
-    class MockUser:
-        def get_starred(self):
-            return [MockRepo(10), MockRepo(5), MockRepo(8), MockRepo(3), MockRepo(7)]
 
-    class MockGithub:
-        def get_user(self, user):
-            return MockUser()
+@pytest.fixture(scope="session")
+def pytest_expectation(pytest_repo):
+    return {
+        "name": "pytest",
+        "nameWithOwner": "pytest-dev/pytest",
+        "owner": "pytest-dev",
+        "url": "https://github.com/pytest-dev/pytest",
+        "homepageUrl": "https://pytest.org/",
+        "description": "The pytest framework makes it easy to write small tests, yet scales to support complex functional testing",
+        "topics": [
+            "unit-testing",
+            "test",
+            "testing",
+            "python",
+            "hacktoberfest",
+        ],
+        "stargazerCount": 10980,
+        "primaryLanguage": "Python",
+        "languages": ["Python", "Gherkin"],
+    }
 
-    # Call the function under test
-    result = get_user_starred_repos("testuser", MockGithub(), num_repos=3)
 
-    # Assert the expected result
+@pytest.fixture
+def calcat_repo():
+    return {
+        "name": "CalCAT",
+        "nameWithOwner": "StateOfCalifornia/CalCAT",
+        "owner": {"login": "StateOfCalifornia"},
+        "url": "https://github.com/StateOfCalifornia/CalCAT",
+        "homepageUrl": "",
+        "description": "California Communicable diseases Assessment Tool",
+        "repositoryTopics": {"nodes": []},
+        "stargazerCount": 219,
+        "primaryLanguage": {"name": "R"},
+        "languages": {
+            "nodes": [{"name": "R"}, {"name": "CSS"}, {"name": "JavaScript"}]
+        },
+    }
+
+
+@pytest.fixture
+def calcat_expectation(calcat_repo):
+    return {
+        "name": "CalCAT",
+        "nameWithOwner": "StateOfCalifornia/CalCAT",
+        "owner": "StateOfCalifornia",
+        "url": "https://github.com/StateOfCalifornia/CalCAT",
+        "description": "California Communicable diseases Assessment Tool",
+        "stargazerCount": 219,
+        "primaryLanguage": "R",
+        "languages": ["R", "CSS", "JavaScript"],
+    }
+
+
+@pytest.fixture
+def the_open_book_repo():
+    return {
+        "name": "The-Open-Book",
+        "nameWithOwner": "joeycastillo/The-Open-Book",
+        "owner": {"login": "joeycastillo"},
+        "url": "https://github.com/joeycastillo/The-Open-Book",
+        "homepageUrl": None,
+        "description": None,
+        "repositoryTopics": {"nodes": []},
+        "stargazerCount": 7265,
+        "primaryLanguage": None,
+        "languages": {"nodes": []},
+    }
+
+
+@pytest.fixture
+def the_open_book_expectation(the_open_book_repo):
+    return {
+        "name": "The-Open-Book",
+        "nameWithOwner": "joeycastillo/The-Open-Book",
+        "owner": "joeycastillo",
+        "url": "https://github.com/joeycastillo/The-Open-Book",
+        "stargazerCount": 7265,
+    }
+
+
+@pytest.fixture
+def minimal_repo():
+    return {
+        "name": "fakerepo",
+        "nameWithOwner": "fakeuser/fakerepo",
+        "owner": {"login": "fakeuser"},
+        "url": "https://github.com/fakeuser/fakerepo",
+        "homepageUrl": None,
+        "description": None,
+        "repositoryTopics": {"nodes": []},
+        "stargazerCount": 1,
+        "primaryLanguage": None,
+        "languages": {"nodes": []},
+    }
+
+
+@pytest.fixture
+def minimal_expectation(minimal_repo):
+    return {
+        "name": "fakerepo",
+        "nameWithOwner": "fakeuser/fakerepo",
+        "owner": "fakeuser",
+        "url": "https://github.com/fakeuser/fakerepo",
+        "stargazerCount": 1,
+    }
+
+
+@pytest.fixture
+def emoji_metadata_repo():
+    return {
+        "name": "gh-i",
+        "nameWithOwner": "gennaro-tedesco/gh-i",
+        "owner": {"login": "gennaro-tedesco"},
+        "url": "https://github.com/gennaro-tedesco/gh-i",
+        "homepageUrl": None,
+        "description": "🔎 search your github issues interactively",
+        "repositoryTopics": {
+            "nodes": [
+                {"topic": {"name": "gh-extension"}},
+                {"topic": {"name": "command-line"}},
+                {"topic": {"name": "go"}},
+            ]
+        },
+        "stargazerCount": 52,
+        "primaryLanguage": {"name": "Go"},
+        "languages": {
+            "nodes": [
+                {"name": "Go"},
+            ]
+        },
+    }
+
+
+@pytest.fixture
+def emoji_metadata_expectation():
+    return {
+        "name": "gh-i",
+        "nameWithOwner": "gennaro-tedesco/gh-i",
+        "owner": "gennaro-tedesco",
+        "url": "https://github.com/gennaro-tedesco/gh-i",
+        "description": "🔎 search your github issues interactively",
+        "topics": [
+            "gh-extension",
+            "command-line",
+            "go",
+        ],
+        "stargazerCount": 52,
+        "primaryLanguage": "Go",
+        "languages": ["Go"],
+    }
+
+
+repos_and_expectations = [
+    ("pytest_repo", "pytest_expectation"),
+    ("calcat_repo", "calcat_expectation"),
+    ("the_open_book_repo", "the_open_book_expectation"),
+    ("minimal_repo", "minimal_expectation"),
+    ("emoji_metadata_repo", "emoji_metadata_expectation"),
+]
+
+
+@pytest.mark.parametrize("repo_fixture, expectation_fixture", repos_and_expectations)
+def test_format_repo(request, repo_fixture, expectation_fixture):
+    repo = request.getfixturevalue(repo_fixture)
+    expectation = request.getfixturevalue(expectation_fixture)
+    result = format_repo(repo)
+    print(result)
+
+    # check each key in expectation is in results
+    for key in expectation.keys():
+        assert key in result.keys()
+
+    # check each value in expectation is in the right key in results
+    for key, value in expectation.items():
+        assert result[key] == value
+
+    # check only the keys in expectation are in results
+    for key in result.keys():
+        assert key in expectation.keys()
+
+    # check no values are None
+    for value in result.values():
+        assert value is not None
+
+    # check no values are empty strings
+    for value in result.values():
+        assert value != ""
+
+
+def test_prepare_document():
+    result = prepare_documents("./tests/test_data/")
+
     assert len(result) == 3
-    assert result[0].stargazers_count == 10
-    assert result[1].stargazers_count == 8
-    assert result[2].stargazers_count == 7
 
+    for document in result:
+        assert isinstance(document, Document)
 
-@pytest.mark.vcr()
-def test_get_user_starred_repos_vcr():
-    import os
+    for document in result:
+        assert document.metadata is not None
 
-    import github
+    for document in result:
+        for key, value in document.metadata.items():
+            assert value is not None
 
-    github_client = github.Github(os.getenv("GITHUB_API_KEY"))
+    for document in result:
+        assert document.page_content is not None
 
-    result = get_user_starred_repos("DaveParr", github_client, num_repos=3)
+    names = [document.metadata["name"] for document in result]
 
-    assert len(result) == 3
-    assert isinstance(result[0], github.Repository.Repository)
+    assert "pytest" in names
+    assert "The-Open-Book" in names
+    assert "gh-i" in names
 
-
-def test_get_repo_contents_with_readmes():
-    # Mock the necessary objects
-    class MockRepo:
-        def __init__(
-            self,
-            full_name,
-            name,
-            html_url,
-            owner,
-            organization,
-            description,
-            topics,
-            languages,
-        ):
-            self.full_name = full_name
-            self.name = name
-            self.html_url = html_url
-            self.owner = owner
-            self.organization = organization
-            self.description = description
-            self.topics = topics
-            self.languages = languages
-
-        def get_languages(self):
-            return self.languages
-
-        def get_topics(self):
-            return self.topics
-
-        def get_contents(self, path):
-            if path == "README.md":
-                return Mock(decoded_content=b"Mock README content")
-            elif path == "README.rst":
-                return Mock(decoded_content=b"Mock README content")
-            else:
-                raise UnknownObjectException
-
-    class MockGithub:
-        def __init__(self, repos):
-            self.repos = repos
-
-        def get_repo(self, full_name):
-            for repo in self.repos:
-                if repo.full_name == full_name:
-                    return repo
-
-    # Create mock repositories
-    repos = [
-        MockRepo(
-            "user/repo1",
-            "repo1",
-            "https://github.com/user/repo1",
-            Mock(name="owner"),
-            Mock(name="organization"),
-            "Repo 1 description",
-            ["topic1", "topic2"],
-            ["Python", "JavaScript"],
-        ),
-        MockRepo(
-            "user/repo2",
-            "repo2",
-            "https://github.com/user/repo2",
-            Mock(name="owner"),
-            None,
-            "Repo 2 description",
-            [],
-            ["Python"],
-        ),
-        MockRepo(
-            "user/repo3",
-            "repo3",
-            "https://github.com/user/repo3",
-            Mock(name="owner"),
-            Mock(name="organization"),
-            None,
-            ["topic1"],
-            [],
-        ),
-    ]
-
-    # Mock the Github client
-    github_client = MockGithub(repos)
-
-    # Call the function under test
-    result = get_repo_contents(repos, github_client, include_readmes=True)
-
-    # Assert the expected result
-    assert len(result) == 2
-
-    assert result[0]["id"] == "user/repo1"
-    assert result[0]["name"] == "repo1"
-    assert result[0]["url"] == "https://github.com/user/repo1"
-    assert "owner" in result[0]
+    for document in result:
+        if document.metadata["name"] == "pytest":
+            assert document.metadata["url"] == "https://github.com/pytest-dev/pytest"
+            assert (
+                document.metadata["topics"]
+                == "unit-testing test testing python hacktoberfest"
+            )
+            assert (
+                document.metadata["description"]
+                == "The pytest framework makes it easy to write small tests, yet scales to support complex functional testing"
+            )
+            assert document.metadata["languages"] == "Python Gherkin"
+        elif document.metadata["name"] == "The-Open-Book":
+            assert (
+                document.metadata["url"]
+                == "https://github.com/joeycastillo/The-Open-Book"
+            )
+            assert document.metadata.get("description") is None
+            assert document.metadata.get("topics") is None
+            assert document.metadata.get("languages") is None
+        elif document.metadata["name"] == "gh-i":
+            assert (
+                document.metadata["url"] == "https: //github.com/gennaro-tedesco/gh-i"
+            )
+            assert document.metadata["topics"] == "gh-extension command-line go"
+            assert (
+                document.metadata["description"]
+                == "🔎 search your github issues interactively"
+            )
+            assert document.metadata["languages"] == "Go"

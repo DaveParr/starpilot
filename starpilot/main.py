@@ -1,14 +1,15 @@
+import logging
 import os
 import shutil
 
 import dotenv
 import structlog
 import typer
-from github import Github
 from langchain.chains.query_constructor.base import (
-    AttributeInfo,
     load_query_constructor_runnable,
 )
+from langchain.chains.query_constructor.ir import Comparator
+from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.retrievers.self_query.base import SelfQueryRetriever
@@ -23,10 +24,13 @@ try:
     from icecream import ic, install
 
     install()
-except Exception as e:  # Graceful fallback if IceCream isn't installed.
+except Exception:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-logger = structlog.get_logger(__name__)
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)
+)
+logger = structlog.get_logger()
 
 # Environment variables
 dotenv.load_dotenv()
@@ -35,7 +39,6 @@ VECTORSTORE_PATH = "./vectorstore-chroma"
 
 try:
     git_hub_key = os.getenv("GITHUB_API_KEY")
-    GITHUB_CONNECTION = Github(git_hub_key)
 except Exception:
     raise Exception("Please create a .env file with your GitHub token")
 
@@ -84,36 +87,36 @@ def read(
     Read stars from GitHub
     """
 
-    # issue warniong if github doesn't have api key set
-    if (os.getenv("GITHUB_API_KEY")) is None:
-        typer.echo("Warning: GitHub API key not set. You may be rate limited by GitHub")
+    if (git_hub_key := os.getenv("GITHUB_API_KEY")) is None:
+        raise Exception(
+            "Please create a .env file with your GitHub token with the `setup` command"
+        )
 
     repos = utils.get_user_starred_repos(
-        user=user,
-        g=GITHUB_CONNECTION,
-        num_repos=k,
+        username=user,
+        github_api_key=git_hub_key,
     )
 
-    repo_contents = utils.get_repo_contents(
-        repos=repos,
-        g=GITHUB_CONNECTION,
-    )
+    formatted_repos = []
+    for repo in repos:
+        formatted_repos.append(utils.format_repo(repo))
 
-    utils.save_repo_contents_to_disk(repo_contents=repo_contents)
+    utils.save_repo_contents_to_disk(repo_contents=formatted_repos)
 
     vectorstore_path = "./vectorstore-chroma"
 
     if os.path.exists(vectorstore_path):
+        logger.debug("Removing previous vectorstore", path=vectorstore_path)
         shutil.rmtree(vectorstore_path)
 
-    # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
-    # IDEA: Compare the results of the existing vectorstore to the results of the GitHub API and only CRUD the files that have changed
+    # # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
+    # # IDEA: Compare the results of the existing vectorstore to the results of the GitHub API and only CRUD the files that have changed
 
     repo_documents = utils.prepare_documents()
 
     Chroma.from_documents(
         documents=repo_documents,
-        embedding=GPT4AllEmbeddings(disallowed_special=()),
+        embedding=GPT4AllEmbeddings(client=None),
         persist_directory=vectorstore_path,
     )
 
@@ -140,9 +143,9 @@ def shoot(
 
     retriever = utils.create_retriever(
         vectorstore_path=VECTORSTORE_PATH,
-        k=k,
-        method=method.value,
-        score_threshold=threshold,
+        k=k,  # type: ignore
+        method=method.value,  # type: ignore
+        score_threshold=threshold,  # type: ignore
     )
 
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
@@ -191,27 +194,28 @@ def astrologer(
         llm=ChatOpenAI(
             model="gpt-3.5-turbo",
             temperature=0,
-            openai_api_key=openai_api_key,
+            api_key=openai_api_key,
         ),
         document_contents=document_contents,
         attribute_info=attribute_info,
         fix_invalid=True,
         allowed_comparators=[
-            "eq",
-            "ne",
-            "gt",
-            "gte",
-            "lt",
-            "lte",
-        ],  # set to chroma allowed comparators, if this changes, these can (*should*) be updated
+            Comparator.EQ,
+            Comparator.NE,
+            Comparator.GT,
+            Comparator.GTE,
+            Comparator.LT,
+            Comparator.LTE,
+        ],  # set to chroma specific allowed comparators, if the vectorstore changes, these can (*should*) be updated
     )
 
     retriever = SelfQueryRetriever(
-        query_constructor=chain,
+        llm_chain=chain,
         vectorstore=Chroma(
-            persist_directory=VECTORSTORE_PATH, embedding_function=GPT4AllEmbeddings()
+            persist_directory=VECTORSTORE_PATH,
+            embedding_function=GPT4AllEmbeddings(client=None),
         ),
         verbose=True,
-    )
+    )  # type: ignore
 
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
