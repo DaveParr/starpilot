@@ -3,13 +3,13 @@ import os
 import shutil
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
+
 import structlog
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from graphql_query import (
     Argument,
     Field,
-    InlineFragment,
     Operation,
     Query,
 )
@@ -17,9 +17,9 @@ from langchain.document_loaders import JSONLoader
 from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
 from langchain.vectorstores import Chroma
+from langchain.vectorstores.utils import filter_complex_metadata
 from rich.progress import track
 from rich.table import Table
-from langchain.vectorstores.utils import filter_complex_metadata
 
 try:
     from icecream import ic
@@ -30,6 +30,10 @@ logger = structlog.get_logger(__name__)
 
 
 def get_user_starred_repos(username: str, github_api_key: str) -> List:
+    """
+    Get the starred repos for a user using github GraphQL API
+    """
+
     after_cursor = ""
     all_results = []
 
@@ -166,13 +170,17 @@ def get_user_starred_repos(username: str, github_api_key: str) -> List:
         return repos, next_cursor
 
     while True:
+        print(f"Fetching page of starred repos for {username}")
         result, after_cursor = _get_page_of_user_starred_repos(
             user=username, github_api_key=github_api_key, after_cursor=after_cursor
         )
 
+        ic(result)
+
         all_results.append(result)
 
         if after_cursor is None:
+            print("No more pages of results")
             break
 
     all_results = [item for sublist in all_results for item in sublist]
@@ -216,6 +224,9 @@ def format_repo(repo: Dict) -> Dict:
 def save_repo_contents_to_disk(
     repo_contents: List[Dict], repo_contents_dir: str = "./repo_content"
 ) -> None:
+    """
+    Save the repo contents to disk
+    """
     if not os.path.exists(repo_contents_dir):
         os.makedirs(repo_contents_dir)
     else:
@@ -235,6 +246,9 @@ def save_repo_contents_to_disk(
 def prepare_documents(
     repo_contents_dir: str = "./repo_content",
 ) -> List[Document]:
+    """
+    Prepare the documents for ingestion into the vectorstore
+    """
     file_paths = []
     for file in os.listdir(repo_contents_dir):
         file_paths.append(os.path.join(repo_contents_dir, file))
@@ -284,6 +298,10 @@ def prepare_documents(
 
 
 class SearchMethods(Enum):
+    """
+    Enum for the different search methods
+    """
+
     similarity = "similarity"
     similarity_score_threshold = "similarity_score_threshold"
     mmr = "mmr"
@@ -297,12 +315,6 @@ def create_retriever(
 ):
     """
     Create a retriever from a vectorstore
-
-    Args:
-        vectorstore_path (str): The path to the vectorstore
-        k (int): The number of results to return
-        method (str): The search method to use
-        score_threshold (float): The similarity threshold to use
     """
     return Chroma(
         persist_directory=vectorstore_path,
@@ -317,6 +329,9 @@ def create_retriever(
 
 
 def create_results_table(response: List[Document]) -> Table:
+    """
+    Create a rich table from the response
+    """
     table = Table(title="Source Documents")
 
     table.add_column("Repo")

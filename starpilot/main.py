@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 
@@ -26,7 +27,10 @@ try:
 except Exception:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-logger = structlog.get_logger(__name__)
+structlog.configure(
+    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)
+)
+logger = structlog.get_logger()
 
 # Environment variables
 dotenv.load_dotenv()
@@ -82,22 +86,7 @@ def read(
     """
     Read stars from GitHub
     """
-    from cProfile import Profile
-    from datetime import datetime
 
-    import logging
-
-    logging.basicConfig(
-        filename="app-read.log",
-        filemode="w",
-        level=logging.DEBUG,
-    )
-
-    profile = Profile()
-
-    profile.enable()
-
-    # issue warning if github doesn't have api key set
     if (git_hub_key := os.getenv("GITHUB_API_KEY")) is None:
         raise Exception(
             "Please create a .env file with your GitHub token with the `setup` command"
@@ -108,7 +97,6 @@ def read(
         github_api_key=git_hub_key,
     )
 
-    # iterate format_repo over repos amd append into new list
     formatted_repos = []
     for repo in repos:
         formatted_repos.append(utils.format_repo(repo))
@@ -131,11 +119,6 @@ def read(
         embedding=GPT4AllEmbeddings(client=None),
         persist_directory=vectorstore_path,
     )
-
-    profile.disable()
-
-    # dump profile with current time stamp and k value as file name
-    profile.dump_stats(f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}_{k}.pstats")
 
 
 @app.command()
@@ -223,7 +206,7 @@ def astrologer(
             Comparator.GTE,
             Comparator.LT,
             Comparator.LTE,
-        ],  # set to chroma allowed comparators, if this changes, these can (*should*) be updated
+        ],  # set to chroma specific allowed comparators, if the vectorstore changes, these can (*should*) be updated
     )
 
     retriever = SelfQueryRetriever(
