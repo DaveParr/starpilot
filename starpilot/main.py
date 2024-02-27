@@ -10,10 +10,10 @@ from langchain.chains.query_constructor.base import (
 )
 from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import GPT4AllEmbeddings
 from langchain.retrievers.self_query.base import SelfQueryRetriever
-from langchain.vectorstores import Chroma
+from langchain_community.embeddings import GPT4AllEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_openai import ChatOpenAI
 from rich import print
 from typing_extensions import Optional
 
@@ -32,16 +32,10 @@ structlog.configure(
 )
 logger = structlog.get_logger()
 
-# Environment variables
-dotenv.load_dotenv()
 
 VECTORSTORE_PATH = "./vectorstore-chroma"
 
-try:
-    git_hub_key = os.getenv("GITHUB_API_KEY")
-except Exception:
-    raise Exception("Please create a .env file with your GitHub token")
-
+dotenv.load_dotenv(dotenv_path=".env")
 
 # Typer setup
 app = typer.Typer()
@@ -72,9 +66,18 @@ def setup():
     )
     openai_api_key = typer.prompt("OpenAI API key")
 
+    typer.echo(
+        """
+        Please enter your OpenAI Organization ID from https://platform.openai.com/account/organization
+        Use quotes e.g. "org-..."
+        """
+    )
+    openai_org_id = typer.prompt("OpenAI Organization ID")
+
     with open(".env", "w") as f:
         f.write(f"GITHUB_API_KEY={github_api_key}\n")
         f.write(f"OPENAI_API_KEY={openai_api_key}\n")
+        f.write(f"OPENAI_ORG_ID={openai_org_id}\n")
 
 
 # Typer commands
@@ -87,14 +90,11 @@ def read(
     Read stars from GitHub
     """
 
-    if (git_hub_key := os.getenv("GITHUB_API_KEY")) is None:
-        raise Exception(
-            "Please create a .env file with your GitHub token with the `setup` command"
-        )
+    GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
 
     repos = utils.get_user_starred_repos(
         username=user,
-        github_api_key=git_hub_key,
+        github_api_key=GITHUB_API_KEY,
     )
 
     formatted_repos = []
@@ -130,9 +130,6 @@ def shoot(
     k: Optional[int] = typer.Option(
         15, help="Number of results to fetch from the vectorstore"
     ),
-    threshold: Optional[float] = typer.Option(
-        0.3, help="The similarity threshold to use"
-    ),
 ):
     """
     Shoot a query at the stars
@@ -145,7 +142,6 @@ def shoot(
         vectorstore_path=VECTORSTORE_PATH,
         k=k,  # type: ignore
         method=method.value,  # type: ignore
-        score_threshold=threshold,  # type: ignore
     )
 
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
@@ -158,11 +154,6 @@ def astrologer(
     """
     Use SelfQueryRetriever to self-query the vectorstore
     """
-
-    if (openai_api_key := os.getenv("OPENAI_API_KEY")) is None:
-        raise Exception(
-            "Please create a .env file with your OpenAI API key with the `setup` command"
-        )
 
     attribute_info = [
         # IDEA: create valid specific values on data load for each users content
@@ -190,11 +181,13 @@ def astrologer(
 
     document_contents = "content describing a repository on GitHub"
 
+    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
+    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
+
     chain = load_query_constructor_runnable(
         llm=ChatOpenAI(
             model="gpt-3.5-turbo",
             temperature=0,
-            api_key=openai_api_key,
         ),
         document_contents=document_contents,
         attribute_info=attribute_info,
