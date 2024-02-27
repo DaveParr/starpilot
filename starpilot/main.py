@@ -1,14 +1,11 @@
 import logging
 import os
 import shutil
+from pydoc import cli
 
 import dotenv
 import structlog
 import typer
-from langchain.chains.query_constructor.base import (
-    load_query_constructor_runnable,
-)
-from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain_community.embeddings import GPT4AllEmbeddings
@@ -132,7 +129,7 @@ def shoot(
     ),
 ):
     """
-    Shoot a query at the stars
+    An embedding search of the vectorstore
     """
 
     if not os.path.exists(VECTORSTORE_PATH):
@@ -152,8 +149,18 @@ def astrologer(
     query: str,
 ):
     """
-    Use SelfQueryRetriever to self-query the vectorstore
+    A self-query of the vectorstore that allows the user to search for a repo while filtering by attributes
+
+    Example:
+    ```
+    starpilot astrologer "What can I use to build a web app with Python?"
+    starpilot astrologer "Suggest some Rust machine learning crates"
+    ```
+
     """
+
+    if not os.path.exists(VECTORSTORE_PATH):
+        raise Exception("Please load the stars before shooting")
 
     attribute_info = [
         # IDEA: create valid specific values on data load for each users content
@@ -184,31 +191,17 @@ def astrologer(
     OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
     OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
 
-    chain = load_query_constructor_runnable(
-        llm=ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0,
-        ),
-        document_contents=document_contents,
-        attribute_info=attribute_info,
-        fix_invalid=True,
-        allowed_comparators=[
-            Comparator.EQ,
-            Comparator.NE,
-            Comparator.GT,
-            Comparator.GTE,
-            Comparator.LT,
-            Comparator.LTE,
-        ],  # set to chroma specific allowed comparators, if the vectorstore changes, these can (*should*) be updated
+    llm = ChatOpenAI(temperature=0)
+    vectorstore = Chroma(
+        persist_directory=VECTORSTORE_PATH,
+        embedding_function=GPT4AllEmbeddings(client=None),
     )
 
-    retriever = SelfQueryRetriever(
-        llm_chain=chain,
-        vectorstore=Chroma(
-            persist_directory=VECTORSTORE_PATH,
-            embedding_function=GPT4AllEmbeddings(client=None),
-        ),
-        verbose=True,
-    )  # type: ignore
+    retriever = SelfQueryRetriever.from_llm(
+        llm,
+        vectorstore,
+        document_contents,
+        attribute_info,
+    )
 
-    print(utils.create_results_table(retriever.get_relevant_documents(query)))
+    print(utils.create_results_table(retriever.invoke(query)))
