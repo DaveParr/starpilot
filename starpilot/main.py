@@ -235,6 +235,7 @@ def astrologer(
         query_constructor=query_constructor,
         vectorstore=vectorstore,
         structured_query_translator=ChromaTranslator(),
+        search_kwargs={"k": 10},
     )
 
     results = retriever.invoke(query)
