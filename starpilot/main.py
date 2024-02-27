@@ -162,7 +162,7 @@ def astrologer(
     if not os.path.exists(VECTORSTORE_PATH):
         raise Exception("Please load the stars before shooting")
 
-    attribute_info = [
+    metadata_field_info = [
         # IDEA: create valid specific values on data load for each users content
         AttributeInfo(
             name="languages",
@@ -186,22 +186,57 @@ def astrologer(
         ),
     ]
 
-    document_contents = "content describing a repository on GitHub"
+    document_content_description = "content describing a repository on GitHub"
 
     OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
     OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
 
-    llm = ChatOpenAI(temperature=0)
+    from langchain.chains.query_constructor.base import (
+        StructuredQueryOutputParser,
+        get_query_constructor_prompt,
+    )
+    from langchain.chains.query_constructor.ir import Comparator
+
+    llm = ChatOpenAI(
+        api_key=OPENAI_API_KEY,
+        organization=OPENAI_ORG_ID,
+        model="gpt-3.5-turbo",
+    )
+
+    # https://python.langchain.com/docs/modules/data_connection/retrievers/self_query#constructing-from-scratch-with-lcel
+    # https://github.com/langchain-ai/langchain/blob/master/cookbook/self_query_hotel_search.ipynb
+
+    prompt = get_query_constructor_prompt(
+        document_content_description,
+        metadata_field_info,
+        allowed_comparators=[
+            Comparator.EQ,
+            Comparator.NE,
+            Comparator.GT,
+            Comparator.GTE,
+            Comparator.LT,
+            Comparator.LTE,
+        ],
+    )
+    output_parser = StructuredQueryOutputParser.from_components()
+
+    query_constructor = prompt | llm | output_parser
+
+    ic(query_constructor.invoke({"query": query}))
+
+    from langchain.retrievers.self_query.chroma import ChromaTranslator
+
     vectorstore = Chroma(
         persist_directory=VECTORSTORE_PATH,
         embedding_function=GPT4AllEmbeddings(client=None),
     )
 
-    retriever = SelfQueryRetriever.from_llm(
-        llm,
-        vectorstore,
-        document_contents,
-        attribute_info,
+    retriever = SelfQueryRetriever(
+        query_constructor=query_constructor,
+        vectorstore=vectorstore,
+        structured_query_translator=ChromaTranslator(),
     )
 
-    print(utils.create_results_table(retriever.invoke(query)))
+    results = retriever.invoke(query)
+
+    print(utils.create_results_table(results))
