@@ -16,8 +16,8 @@ starpilot = "starpilot.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-typer = {extras = ["all"], version = "^0.9.0"}
-langchain = "==0.0.348"
+typer = { extras = ["all"], version = "^0.9.0" }
+langchain = "^0.1"
 gpt4all = "^2.0.2"
 chromadb = "0.4.15"
 unstructured = "^0.10.29"
@@ -25,10 +25,12 @@ markdown = "^3.5.1"
 langchainhub = "^0.1.13"
 pypandoc = "^1.12"
 jq = "^1.6.0"
-openai = "0.28.1"
+openai = "^1.12.0"
 structlog = "^23.2.0"
 graphql-query = "^1.2.2"
-gql = {extras = ["all"], version = "^3.5.0"}
+gql = { extras = ["all"], version = "^3.5.0" }
+langchain-community = "^0.0.24"
+langchain-openai = "^0.0.7"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.1"

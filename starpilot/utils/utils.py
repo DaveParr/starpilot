@@ -13,11 +13,11 @@ from graphql_query import (
     Operation,
     Query,
 )
-from langchain.document_loaders import JSONLoader
-from langchain.embeddings import GPT4AllEmbeddings
 from langchain.schema.document import Document
-from langchain.vectorstores import Chroma
 from langchain.vectorstores.utils import filter_complex_metadata
+from langchain_community.document_loaders import JSONLoader
+from langchain_community.embeddings import GPT4AllEmbeddings
+from langchain_community.vectorstores import Chroma
 from rich.progress import track
 from rich.table import Table
 
@@ -311,7 +311,6 @@ def create_retriever(
     vectorstore_path: str,
     k: int,
     method: SearchMethods = SearchMethods.similarity,
-    score_threshold: float = 0.3,
 ):
     """
     Create a retriever from a vectorstore
@@ -323,7 +322,6 @@ def create_retriever(
         search_type=method,
         search_kwargs={
             "k": k,
-            "score_threshold": score_threshold,
         },
     )
 
