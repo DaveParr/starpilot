@@ -186,8 +186,8 @@ def astrologer(
     if not os.path.exists(VECTORSTORE_PATH):
         raise Exception("Please load the stars before shooting")
 
-    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
-    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
+    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]
 
     metadata_field_info = [
         # IDEA: create valid specific values on data load for each users content

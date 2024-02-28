@@ -128,3 +128,15 @@ which is reported to pylance as:
 
 but actually is runnable and correct?
 
+
+## Langchain has bad local logging becuase it wants you to use langsmith
+
+Langchain the company seemed like they just weren't interested in local logging. `verbose=true` seems to not actually do anything in many cases, and grabbing information out of chains during runtime either gives lots of pointless model card information which is not useful, or forces a process of function wrapping or avoiding LCEL. 
+
+Instead they've been developing an extremely complex cloud observability tool called Langsmith. It is defintely useful, and easy to set up and currently has a generous free personal tier. However it does seem a little disingeous to not have a local logging solution, even if the 'new paradigm' of LLM/AI does pose some challenges to traditional logging.
+
+These challenges seem to be:
+
+logging run detail and then aggregating across a number of runs and parameters is more valuable than logging the detail of a single run
+langchain is effectively a data orchestration tool, so the path of a run can vary significantly even with no code changes
+llm/ai is inherently non-deterministic, so the same code can produce different results
