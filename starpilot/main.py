@@ -1,7 +1,7 @@
 import logging
 import os
 import shutil
-from pydoc import cli
+from typing import Annotated
 
 import dotenv
 import structlog
@@ -39,42 +39,58 @@ app = typer.Typer()
 
 
 @app.command()
-def setup():
+def setup(
+    tracing: Annotated[
+        bool, typer.Option(help="Enable tracing with LangSmith")
+    ] = False,
+):
     """
     Setup the CLI with the required API keys
     """
 
-    if os.path.exists(".env"):
-        os.remove(".env")
+    env_file = ".env"
 
     typer.echo(
         """
         Please enter your GitHub API key from https://github.com/settings/tokens
+        e.g. ghp_...
         This can be scoped to read:user
-        Use quotes e.g. "ghp_..."
         """
     )
     github_api_key = typer.prompt("GitHub API key")
+    dotenv.set_key(env_file, "GITHUB_API_KEY", github_api_key)
+
     typer.echo(
         """
         Please enter your OpenAI API key from https://platform.openai.com/api-keys
-        Use quotes e.g. "sk_..."
+        e.g. sk_...
         """
     )
     openai_api_key = typer.prompt("OpenAI API key")
+    dotenv.set_key(env_file, "OPENAI_API_KEY", openai_api_key)
 
     typer.echo(
         """
         Please enter your OpenAI Organization ID from https://platform.openai.com/account/organization
-        Use quotes e.g. "org-..."
+        e.g. org-...
         """
     )
     openai_org_id = typer.prompt("OpenAI Organization ID")
+    dotenv.set_key(env_file, "OPENAI_ORG_ID", openai_org_id)
 
-    with open(".env", "w") as f:
-        f.write(f"GITHUB_API_KEY={github_api_key}\n")
-        f.write(f"OPENAI_API_KEY={openai_api_key}\n")
-        f.write(f"OPENAI_ORG_ID={openai_org_id}\n")
+    if tracing:
+        typer.echo(
+            """
+            Please enter your LangSmith API key from hhttps://smith.langchain.com/
+            e.g. ls__...
+            """
+        )
+        langsmith_api_key = typer.prompt("LangSmith API key")
+        dotenv.set_key(env_file, "LANGCHAIN_API_KEY", langsmith_api_key)
+        dotenv.set_key(env_file, "LANGCHAIN_PROJECT", "starpilot")
+        dotenv.set_key(env_file, "LANGCHAIN_TRACING_V2", tracing, quote_mode="never")  # type: ignore deliberately abusing quote mode to write the bool type that langsmith expects because https://github.com/theskumar/python-dotenv/issues/86
+    else:
+        dotenv.set_key(env_file, "LANGCHAIN_TRACING_V2", tracing, quote_mode="never")  # type: ignore deliberately abusing quote mode to write the bool type that langsmith expects because https://github.com/theskumar/python-dotenv/issues/86
 
 
 # Typer commands
@@ -147,6 +163,9 @@ def shoot(
 @app.command()
 def astrologer(
     query: str,
+    k: Optional[int] = typer.Option(
+        4, help="Number of results to fetch from the vectorstore"
+    ),
 ):
     """
     A self-query of the vectorstore that allows the user to search for a repo while filtering by attributes
@@ -235,7 +254,7 @@ def astrologer(
         query_constructor=query_constructor,
         vectorstore=vectorstore,
         structured_query_translator=ChromaTranslator(),
-        search_kwargs={"k": 10},
+        search_kwargs={"k": k},
     )
 
     results = retriever.invoke(query)

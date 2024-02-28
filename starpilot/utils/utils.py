@@ -149,7 +149,6 @@ def get_user_starred_repos(username: str, github_api_key: str) -> List:
 
         # this call is sorta flaky, and has failed with timeout errors without ovveriding the timeout default
         # rate limit docs: https://docs.github.com/en/graphql/overview/rate-limits-and-node-limits-for-the-graphql-api
-        # TODO: Add some kind of exception handling for timeouts
         result = client.execute(gql(operation.render()))
 
         edges = result["user"]["starredRepositories"]["edges"]
