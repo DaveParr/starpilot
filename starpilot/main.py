@@ -6,6 +6,11 @@ from typing import Annotated
 import dotenv
 import structlog
 import typer
+from langchain.chains.query_constructor.base import (
+    StructuredQueryOutputParser,
+    get_query_constructor_prompt,
+)
+from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain_community.embeddings import GPT4AllEmbeddings
@@ -181,6 +186,9 @@ def astrologer(
     if not os.path.exists(VECTORSTORE_PATH):
         raise Exception("Please load the stars before shooting")
 
+    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
+    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
+
     metadata_field_info = [
         # IDEA: create valid specific values on data load for each users content
         AttributeInfo(
@@ -207,17 +215,8 @@ def astrologer(
 
     document_content_description = "content describing a repository on GitHub"
 
-    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
-    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
-
-    from langchain.chains.query_constructor.base import (
-        StructuredQueryOutputParser,
-        get_query_constructor_prompt,
-    )
-    from langchain.chains.query_constructor.ir import Comparator
-
     llm = ChatOpenAI(
-        api_key=OPENAI_API_KEY,
+        api_key=OPENAI_API_KEY,  # type: ignore
         organization=OPENAI_ORG_ID,
         model="gpt-3.5-turbo",
     )
@@ -251,7 +250,7 @@ def astrologer(
     )
 
     retriever = SelfQueryRetriever(
-        query_constructor=query_constructor,
+        query_constructor=query_constructor,  # type: ignore because it's documented as a pattern https://python.langchain.com/docs/modules/data_connection/retrievers/self_query#constructing-from-scratch-with-lcel:~:text=The%20next%20key,Integrations%20section.
         vectorstore=vectorstore,
         structured_query_translator=ChromaTranslator(),
         search_kwargs={"k": k},
