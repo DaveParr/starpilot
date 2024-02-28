@@ -1,12 +1,14 @@
 import logging
 import os
 import shutil
+from typing import Annotated
 
 import dotenv
 import structlog
 import typer
 from langchain.chains.query_constructor.base import (
-    load_query_constructor_runnable,
+    StructuredQueryOutputParser,
+    get_query_constructor_prompt,
 )
 from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
@@ -42,42 +44,58 @@ app = typer.Typer()
 
 
 @app.command()
-def setup():
+def setup(
+    tracing: Annotated[
+        bool, typer.Option(help="Enable tracing with LangSmith")
+    ] = False,
+):
     """
     Setup the CLI with the required API keys
     """
 
-    if os.path.exists(".env"):
-        os.remove(".env")
+    env_file = ".env"
 
     typer.echo(
         """
         Please enter your GitHub API key from https://github.com/settings/tokens
+        e.g. ghp_...
         This can be scoped to read:user
-        Use quotes e.g. "ghp_..."
         """
     )
     github_api_key = typer.prompt("GitHub API key")
+    dotenv.set_key(env_file, "GITHUB_API_KEY", github_api_key)
+
     typer.echo(
         """
         Please enter your OpenAI API key from https://platform.openai.com/api-keys
-        Use quotes e.g. "sk_..."
+        e.g. sk_...
         """
     )
     openai_api_key = typer.prompt("OpenAI API key")
+    dotenv.set_key(env_file, "OPENAI_API_KEY", openai_api_key)
 
     typer.echo(
         """
         Please enter your OpenAI Organization ID from https://platform.openai.com/account/organization
-        Use quotes e.g. "org-..."
+        e.g. org-...
         """
     )
     openai_org_id = typer.prompt("OpenAI Organization ID")
+    dotenv.set_key(env_file, "OPENAI_ORG_ID", openai_org_id)
 
-    with open(".env", "w") as f:
-        f.write(f"GITHUB_API_KEY={github_api_key}\n")
-        f.write(f"OPENAI_API_KEY={openai_api_key}\n")
-        f.write(f"OPENAI_ORG_ID={openai_org_id}\n")
+    if tracing:
+        typer.echo(
+            """
+            Please enter your LangSmith API key from hhttps://smith.langchain.com/
+            e.g. ls__...
+            """
+        )
+        langsmith_api_key = typer.prompt("LangSmith API key")
+        dotenv.set_key(env_file, "LANGCHAIN_API_KEY", langsmith_api_key)
+        dotenv.set_key(env_file, "LANGCHAIN_PROJECT", "starpilot")
+        dotenv.set_key(env_file, "LANGCHAIN_TRACING_V2", tracing, quote_mode="never")  # type: ignore deliberately abusing quote mode to write the bool type that langsmith expects because https://github.com/theskumar/python-dotenv/issues/86
+    else:
+        dotenv.set_key(env_file, "LANGCHAIN_TRACING_V2", tracing, quote_mode="never")  # type: ignore deliberately abusing quote mode to write the bool type that langsmith expects because https://github.com/theskumar/python-dotenv/issues/86
 
 
 # Typer commands
@@ -132,7 +150,7 @@ def shoot(
     ),
 ):
     """
-    Shoot a query at the stars
+    An embedding search of the vectorstore
     """
 
     if not os.path.exists(VECTORSTORE_PATH):
@@ -150,12 +168,28 @@ def shoot(
 @app.command()
 def astrologer(
     query: str,
+    k: Optional[int] = typer.Option(
+        4, help="Number of results to fetch from the vectorstore"
+    ),
 ):
     """
-    Use SelfQueryRetriever to self-query the vectorstore
+    A self-query of the vectorstore that allows the user to search for a repo while filtering by attributes
+
+    Example:
+    ```
+    starpilot astrologer "What can I use to build a web app with Python?"
+    starpilot astrologer "Suggest some Rust machine learning crates"
+    ```
+
     """
 
-    attribute_info = [
+    if not os.path.exists(VECTORSTORE_PATH):
+        raise Exception("Please load the stars before shooting")
+
+    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
+    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
+
+    metadata_field_info = [
         # IDEA: create valid specific values on data load for each users content
         AttributeInfo(
             name="languages",
@@ -179,19 +213,20 @@ def astrologer(
         ),
     ]
 
-    document_contents = "content describing a repository on GitHub"
+    document_content_description = "content describing a repository on GitHub"
 
-    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]  # noqa: F841 rely on langchain to handle this
-    OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]  # noqa: F841 rely on langchain to handle this
+    llm = ChatOpenAI(
+        api_key=OPENAI_API_KEY,  # type: ignore
+        organization=OPENAI_ORG_ID,
+        model="gpt-3.5-turbo",
+    )
 
-    chain = load_query_constructor_runnable(
-        llm=ChatOpenAI(
-            model="gpt-3.5-turbo",
-            temperature=0,
-        ),
-        document_contents=document_contents,
-        attribute_info=attribute_info,
-        fix_invalid=True,
+    # https://python.langchain.com/docs/modules/data_connection/retrievers/self_query#constructing-from-scratch-with-lcel
+    # https://github.com/langchain-ai/langchain/blob/master/cookbook/self_query_hotel_search.ipynb
+
+    prompt = get_query_constructor_prompt(
+        document_content_description,
+        metadata_field_info,
         allowed_comparators=[
             Comparator.EQ,
             Comparator.NE,
@@ -199,16 +234,28 @@ def astrologer(
             Comparator.GTE,
             Comparator.LT,
             Comparator.LTE,
-        ],  # set to chroma specific allowed comparators, if the vectorstore changes, these can (*should*) be updated
+        ],
+    )
+    output_parser = StructuredQueryOutputParser.from_components()
+
+    query_constructor = prompt | llm | output_parser
+
+    ic(query_constructor.invoke({"query": query}))
+
+    from langchain.retrievers.self_query.chroma import ChromaTranslator
+
+    vectorstore = Chroma(
+        persist_directory=VECTORSTORE_PATH,
+        embedding_function=GPT4AllEmbeddings(client=None),
     )
 
     retriever = SelfQueryRetriever(
-        llm_chain=chain,
-        vectorstore=Chroma(
-            persist_directory=VECTORSTORE_PATH,
-            embedding_function=GPT4AllEmbeddings(client=None),
-        ),
-        verbose=True,
-    )  # type: ignore
+        query_constructor=query_constructor,  # type: ignore because it's documented as a pattern https://python.langchain.com/docs/modules/data_connection/retrievers/self_query#constructing-from-scratch-with-lcel:~:text=The%20next%20key,Integrations%20section.
+        vectorstore=vectorstore,
+        structured_query_translator=ChromaTranslator(),
+        search_kwargs={"k": k},
+    )
 
-    print(utils.create_results_table(retriever.get_relevant_documents(query)))
+    results = retriever.invoke(query)
+
+    print(utils.create_results_table(results))
