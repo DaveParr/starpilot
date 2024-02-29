@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "starpilot"
-version = "0.1.0"
+version = "0.1.2"
 description = "Discover the hidden power of your GitHub Stars"
 authors = ["Dave Parr <8363743+DaveParr@users.noreply.github.com>"]
 readme = "README.md"

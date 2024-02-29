@@ -13,6 +13,7 @@ from langchain.chains.query_constructor.base import (
 from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
+from langchain.retrievers.self_query.chroma import ChromaTranslator
 from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
@@ -203,7 +204,7 @@ def astrologer(
         ),
         AttributeInfo(
             name="topics",
-            description="the topics a repository is tagged with. Example: ['data-science', 'machine-learning', 'python', 'web-development', 'tidyverse']",
+            description="the topics a repository is tagged with. Example: ['data-science', 'machine-learning', 'web-development', 'tidyverse']",
             type="string",
         ),
         AttributeInfo(
@@ -227,22 +228,36 @@ def astrologer(
     prompt = get_query_constructor_prompt(
         document_content_description,
         metadata_field_info,
-        allowed_comparators=[
-            Comparator.EQ,
-            Comparator.NE,
-            Comparator.GT,
-            Comparator.GTE,
-            Comparator.LT,
-            Comparator.LTE,
+        examples=[
+            (
+                "Python machine learning repos",
+                {
+                    "query": "machine learning",
+                    "filter": 'eq("languages", "python")',
+                },
+            ),
+            (
+                "Rust Dataframe crates",
+                {"query": "data frame", "filter": 'eq("languages", "rust")'},
+            ),
+            (
+                "What R packages do time series analysis",
+                {"query": "time series", "filter": 'eq("languages", "R")'},
+            ),
         ],
+        # allowed_comparators=[
+        #     Comparator.EQ,
+        #     Comparator.NE,
+        #     Comparator.GT,
+        #     Comparator.GTE,
+        #     Comparator.LT,
+        #     Comparator.LTE,
+        # ],
     )
+
     output_parser = StructuredQueryOutputParser.from_components()
 
     query_constructor = prompt | llm | output_parser
-
-    ic(query_constructor.invoke({"query": query}))
-
-    from langchain.retrievers.self_query.chroma import ChromaTranslator
 
     vectorstore = Chroma(
         persist_directory=VECTORSTORE_PATH,
