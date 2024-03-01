@@ -10,13 +10,13 @@ from langchain.chains.query_constructor.base import (
     StructuredQueryOutputParser,
     get_query_constructor_prompt,
 )
-from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.retrievers.self_query.chroma import ChromaTranslator
 from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
+from langchain_openai.embeddings import OpenAIEmbeddings
 from rich import print
 from typing_extensions import Optional
 
@@ -103,7 +103,10 @@ def setup(
 @app.command()
 def read(
     user: str,
-    k: Optional[int] = typer.Option(500, help="Number of repositories to load"),
+    k: Optional[int] = typer.Option(5, help="Number of repositories to load"),
+    openai: Annotated[
+        bool, typer.Option(help="Use OpenAI embeddings instead of the default")
+    ] = False,
 ) -> None:
     """
     Read stars from GitHub
@@ -111,16 +114,32 @@ def read(
 
     GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
 
+    if openai:
+        print("Using OpenAI embeddings")
+        OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+        embedding_function = OpenAIEmbeddings(model="text-embedding-3-large")
+    else:
+        embedding_function = GPT4AllEmbeddings(client=None)
+
     repos = utils.get_user_starred_repos(
         username=user,
         github_api_key=GITHUB_API_KEY,
     )
 
+    # TODO: Order by stars and apply k
+
     formatted_repos = []
     for repo in repos:
         formatted_repos.append(utils.format_repo(repo))
 
-    utils.save_repo_contents_to_disk(repo_contents=formatted_repos)
+    # order by stars and pick top k
+    formatted_repos = sorted(
+        formatted_repos, key=lambda x: x["stargazerCount"], reverse=True
+    )[:k]
+
+    utils.save_repo_contents_to_disk(
+        repo_contents=formatted_repos
+    )  # FIXME: This should react to when k is set, and self-clean?
 
     vectorstore_path = "./vectorstore-chroma"
 
@@ -131,13 +150,15 @@ def read(
     # # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
     # # IDEA: Compare the results of the existing vectorstore to the results of the GitHub API and only CRUD the files that have changed
 
-    repo_documents = utils.prepare_documents()
+    repo_documents = utils.prepare_documents()  # FIXME: maybe this should accept k?
 
-    Chroma.from_documents(
-        documents=repo_documents,
-        embedding=GPT4AllEmbeddings(client=None),
-        persist_directory=vectorstore_path,
-    )
+    ic(repo_documents[0])
+
+    # Chroma.from_documents(
+    #     documents=selected_documents,
+    #     embedding=embedding_function,
+    #     persist_directory=vectorstore_path,
+    # )
 
 
 @app.command()
@@ -161,7 +182,7 @@ def shoot(
         vectorstore_path=VECTORSTORE_PATH,
         k=k,  # type: ignore
         method=method.value,  # type: ignore
-    )
+    )  # FIXME: This will break if openai embedding
 
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
 
@@ -245,14 +266,6 @@ def astrologer(
                 {"query": "time series", "filter": 'eq("languages", "R")'},
             ),
         ],
-        # allowed_comparators=[
-        #     Comparator.EQ,
-        #     Comparator.NE,
-        #     Comparator.GT,
-        #     Comparator.GTE,
-        #     Comparator.LT,
-        #     Comparator.LTE,
-        # ],
     )
 
     output_parser = StructuredQueryOutputParser.from_components()
@@ -261,7 +274,9 @@ def astrologer(
 
     vectorstore = Chroma(
         persist_directory=VECTORSTORE_PATH,
-        embedding_function=GPT4AllEmbeddings(client=None),
+        embedding_function=OpenAIEmbeddings(
+            model="text-embedding-3-large"
+        ),  # FIXME: This will break if openai embedding
     )
 
     retriever = SelfQueryRetriever(

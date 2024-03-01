@@ -16,8 +16,8 @@ from graphql_query import (
 from langchain.schema.document import Document
 from langchain.vectorstores.utils import filter_complex_metadata
 from langchain_community.document_loaders import JSONLoader
-from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_openai.embeddings import OpenAIEmbeddings
 from rich.progress import track
 from rich.table import Table
 
@@ -174,8 +174,6 @@ def get_user_starred_repos(username: str, github_api_key: str) -> List:
             user=username, github_api_key=github_api_key, after_cursor=after_cursor
         )
 
-        ic(result)
-
         all_results.append(result)
 
         if after_cursor is None:
@@ -209,6 +207,25 @@ def format_repo(repo: Dict) -> Dict:
         "topics": [
             topic["topic"]["name"] for topic in repo["repositoryTopics"]["nodes"]
         ],
+        # join name, description, topics if they are not none
+        "content": " ".join(
+            filter(
+                None,
+                [
+                    repo["name"],
+                    repo["description"],
+                    " ".join(
+                        [
+                            topic["topic"]["name"]
+                            for topic in repo["repositoryTopics"]["nodes"]
+                        ]
+                    ),
+                    repo["primaryLanguage"]["name"]
+                    if repo["primaryLanguage"]
+                    else None,
+                ],
+            )
+        ),
     }
 
     # remove keys with None, empty values, or empty strings
@@ -248,6 +265,8 @@ def prepare_documents(
     """
     Prepare the documents for ingestion into the vectorstore
     """
+    import tiktoken
+
     file_paths = []
     for file in os.listdir(repo_contents_dir):
         file_paths.append(os.path.join(repo_contents_dir, file))
@@ -255,12 +274,14 @@ def prepare_documents(
     def _metadata_func(record: dict, metadata: dict) -> dict:
         metadata["url"] = record.get("url")
         metadata["name"] = record.get("name")
+        metadata["stargazerCount"] = record["stargazerCount"]
         if (description := record.get("description")) is not None:
             metadata["description"] = description
         if (topics := record.get("topics")) is not None:
             metadata["topics"] = " ".join(topics)
         if (languages := record.get("languages")) is not None:
             metadata["languages"] = " ".join(languages)
+        # TODO: Add starcount to metadata
 
         # if any of the fields are not one of (str, bool, int, float) log a warning
         for key, value in metadata.items():
@@ -275,21 +296,30 @@ def prepare_documents(
 
         return metadata
 
-    # /home/dave/.cache/pypoetry/virtualenvs/starpilot-OKleAcjU-py3.10/lib/python3.10/site-packages/langchain/vectorstores/chroma.py:309 in add_texts
-    # ValueError: Expected metadata value to be a str, int, float or bool, got None which is a <class 'NoneType'>
+    def _num_tokens_from_string(string: str, encoding_name: str) -> int:
+        """Returns the number of tokens in a text string."""
+        encoding = tiktoken.get_encoding(encoding_name)
+        num_tokens = len(encoding.encode(string))
+        return num_tokens
 
-    # Try filtering complex metadata from the document using langchain.vectorstores.utils.filter_complex_metadata.
     documents = []
     for file_path in track(file_paths, description="Loading documents..."):
         logger.debug("Loading document", file=file_path)
         loader = JSONLoader(
             file_path,
-            jq_schema=".",
+            jq_schema=".",  # FIXME: This drops the other fields from metadata
+            content_key="content",
             metadata_func=_metadata_func,
             text_content=False,
         )
-        if (loaded := loader.load())[0].page_content != "":
-            documents.extend(loaded)
+        if (loaded_document := loader.load())[0].page_content != "":
+            print(len(loaded_document))
+            print(loaded_document[0].page_content)
+            content_token_length = _num_tokens_from_string(
+                loaded_document[0].page_content, "cl100k_base"
+            )
+            print(content_token_length)
+            documents.extend(loaded_document)
 
     documents = filter_complex_metadata(documents)
 
@@ -316,7 +346,9 @@ def create_retriever(
     """
     return Chroma(
         persist_directory=vectorstore_path,
-        embedding_function=GPT4AllEmbeddings(),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
+        embedding_function=OpenAIEmbeddings(
+            model="text-embedding-3-large"
+        ),  # FIXME: This will break if openai embedding # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
     ).as_retriever(
         search_type=method,
         search_kwargs={
