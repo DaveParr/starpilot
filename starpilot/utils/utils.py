@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import token
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -296,12 +297,6 @@ def prepare_documents(
 
         return metadata
 
-    def _num_tokens_from_string(string: str, encoding_name: str) -> int:
-        """Returns the number of tokens in a text string."""
-        encoding = tiktoken.get_encoding(encoding_name)
-        num_tokens = len(encoding.encode(string))
-        return num_tokens
-
     documents = []
     for file_path in track(file_paths, description="Loading documents..."):
         logger.debug("Loading document", file=file_path)
@@ -313,13 +308,30 @@ def prepare_documents(
             text_content=False,
         )
         if (loaded_document := loader.load())[0].page_content != "":
-            print(len(loaded_document))
-            print(loaded_document[0].page_content)
-            content_token_length = _num_tokens_from_string(
-                loaded_document[0].page_content, "cl100k_base"
-            )
-            print(content_token_length)
             documents.extend(loaded_document)
+
+    def _num_tokens_from_string(string: str, encoding_name: str) -> int:
+        """Returns the number of tokens in a text string."""
+        encoding = tiktoken.get_encoding(encoding_name)
+        num_tokens = len(encoding.encode(string))
+        return num_tokens
+
+    # calculate the sum total tokens for the content of each document
+
+    token_lengths = []
+    for document in documents:
+        token_lengths.append(
+            _num_tokens_from_string(document.page_content, "cl100k_base")
+        )
+
+    price_per_million_tokens = 0.13
+
+    logger.info(
+        "Token lengths",
+        total_tokens=sum(token_lengths),
+        mean_tokens=sum(token_lengths) / len(token_lengths),
+        total_cost=sum(token_lengths) * price_per_million_tokens / 1e6,
+    )
 
     documents = filter_complex_metadata(documents)
 
@@ -368,6 +380,7 @@ def create_results_table(response: List[Document]) -> Table:
     table.add_column("URL")
     table.add_column("Topic")
     table.add_column("Language")
+    table.add_column("Star Count")
 
     for source_document in response:
         table.add_row(
@@ -376,6 +389,7 @@ def create_results_table(response: List[Document]) -> Table:
             source_document.metadata.get("url"),
             source_document.metadata.get("topics"),
             source_document.metadata.get("languages"),
+            str(source_document.metadata.get("stargazerCount")),
         )
 
     return table

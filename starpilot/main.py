@@ -10,6 +10,7 @@ from langchain.chains.query_constructor.base import (
     StructuredQueryOutputParser,
     get_query_constructor_prompt,
 )
+from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.retrievers.self_query.chroma import ChromaTranslator
@@ -30,9 +31,7 @@ try:
 except Exception:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)
-)
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.INFO))
 logger = structlog.get_logger()
 
 
@@ -103,23 +102,15 @@ def setup(
 @app.command()
 def read(
     user: str,
-    k: Optional[int] = typer.Option(5, help="Number of repositories to load"),
-    openai: Annotated[
-        bool, typer.Option(help="Use OpenAI embeddings instead of the default")
-    ] = False,
+    k: Optional[int] = typer.Option(900, help="Number of repositories to load"),
 ) -> None:
     """
     Read stars from GitHub
     """
 
     GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
-
-    if openai:
-        print("Using OpenAI embeddings")
-        OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-        embedding_function = OpenAIEmbeddings(model="text-embedding-3-large")
-    else:
-        embedding_function = GPT4AllEmbeddings(client=None)
+    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
+    embedding_function = OpenAIEmbeddings(model="text-embedding-3-large")
 
     repos = utils.get_user_starred_repos(
         username=user,
@@ -133,12 +124,12 @@ def read(
         formatted_repos.append(utils.format_repo(repo))
 
     # order by stars and pick top k
-    formatted_repos = sorted(
+    top_k_formatted_repos = sorted(
         formatted_repos, key=lambda x: x["stargazerCount"], reverse=True
     )[:k]
 
     utils.save_repo_contents_to_disk(
-        repo_contents=formatted_repos
+        repo_contents=top_k_formatted_repos
     )  # FIXME: This should react to when k is set, and self-clean?
 
     vectorstore_path = "./vectorstore-chroma"
@@ -152,13 +143,11 @@ def read(
 
     repo_documents = utils.prepare_documents()  # FIXME: maybe this should accept k?
 
-    ic(repo_documents[0])
-
-    # Chroma.from_documents(
-    #     documents=selected_documents,
-    #     embedding=embedding_function,
-    #     persist_directory=vectorstore_path,
-    # )
+    Chroma.from_documents(
+        documents=repo_documents,
+        embedding=embedding_function,
+        persist_directory=vectorstore_path,
+    )
 
 
 @app.command()
@@ -266,6 +255,14 @@ def astrologer(
                 {"query": "time series", "filter": 'eq("languages", "R")'},
             ),
         ],
+        allowed_comparators=[
+            Comparator.EQ,
+            Comparator.NE,
+            Comparator.GT,
+            Comparator.GTE,
+            Comparator.LT,
+            Comparator.LTE,
+        ],
     )
 
     output_parser = StructuredQueryOutputParser.from_components()
@@ -287,5 +284,7 @@ def astrologer(
     )
 
     results = retriever.invoke(query)
+
+    ic(results)
 
     print(utils.create_results_table(results))
