@@ -222,6 +222,11 @@ def astrologer(
             description="the url of a repository on GitHub",
             type="string",
         ),
+        AttributeInfo(
+            name="stargazerCount",
+            description="the number of stars a repository has on GitHub",
+            type="number",
+        ),
     ]
 
     document_content_description = "content describing a repository on GitHub"
@@ -243,16 +248,23 @@ def astrologer(
                 "Python machine learning repos",
                 {
                     "query": "machine learning",
-                    "filter": 'eq("languages", "python")',
+                    "filter": 'eq("primaryLanguage", "Python")',
                 },
             ),
             (
                 "Rust Dataframe crates",
-                {"query": "data frame", "filter": 'eq("languages", "rust")'},
+                {"query": "data frame", "filter": 'eq("primaryLanguage", "Rust")'},
             ),
             (
                 "What R packages do time series analysis",
-                {"query": "time series", "filter": 'eq("languages", "R")'},
+                {"query": "time series", "filter": 'eq("primaryLanguage", "R")'},
+            ),
+            (
+                "data frame packages with 100 stars or more",
+                {
+                    "query": "data frame",
+                    "filter": 'gte("stargazerCount", 100)',
+                },
             ),
         ],
         allowed_comparators=[
@@ -281,6 +293,7 @@ def astrologer(
         vectorstore=vectorstore,
         structured_query_translator=ChromaTranslator(),
         search_kwargs={"k": k},
+        verbose=True,
     )
 
     results = retriever.invoke(query)

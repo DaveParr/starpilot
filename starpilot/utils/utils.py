@@ -21,6 +21,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai.embeddings import OpenAIEmbeddings
 from rich.progress import track
 from rich.table import Table
+from sqlalchemy import over
 
 try:
     from icecream import ic
@@ -276,6 +277,8 @@ def prepare_documents(
         metadata["url"] = record.get("url")
         metadata["name"] = record.get("name")
         metadata["stargazerCount"] = record["stargazerCount"]
+        if (primary_language := record.get("primaryLanguage")) is not None:
+            metadata["primaryLanguage"] = primary_language
         if (description := record.get("description")) is not None:
             metadata["description"] = description
         if (topics := record.get("topics")) is not None:
@@ -375,11 +378,14 @@ def create_results_table(response: List[Document]) -> Table:
     """
     table = Table(title="Source Documents")
 
-    table.add_column("Repo")
+    table.add_column("Repo")  # TODO: make this text a link to the repo
     table.add_column("Description")
-    table.add_column("URL")
+    table.add_column(
+        "URL", no_wrap=True
+    )  # This is so the link is always clickable, truncated text in this cilumn truncates the link
     table.add_column("Topic")
-    table.add_column("Language")
+    table.add_column("Primary Language")
+    table.add_column("Languages")
     table.add_column("Star Count")
 
     for source_document in response:
@@ -388,6 +394,7 @@ def create_results_table(response: List[Document]) -> Table:
             source_document.metadata.get("description"),
             source_document.metadata.get("url"),
             source_document.metadata.get("topics"),
+            source_document.metadata.get("primaryLanguage"),
             source_document.metadata.get("languages"),
             str(source_document.metadata.get("stargazerCount")),
         )
