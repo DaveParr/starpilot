@@ -14,7 +14,6 @@ from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.retrievers.self_query.chroma import ChromaTranslator
-from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
 from langchain_openai.embeddings import OpenAIEmbeddings
@@ -109,15 +108,12 @@ def read(
     """
 
     GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
-    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
     embedding_function = OpenAIEmbeddings(model="text-embedding-3-large")
 
     repos = utils.get_user_starred_repos(
         username=user,
         github_api_key=GITHUB_API_KEY,
     )
-
-    # TODO: Order by stars and apply k
 
     formatted_repos = []
     for repo in repos:
@@ -128,9 +124,7 @@ def read(
         formatted_repos, key=lambda x: x["stargazerCount"], reverse=True
     )[:k]
 
-    utils.save_repo_contents_to_disk(
-        repo_contents=top_k_formatted_repos
-    )  # FIXME: This should react to when k is set, and self-clean?
+    utils.save_repo_contents_to_disk(repo_contents=top_k_formatted_repos)
 
     vectorstore_path = "./vectorstore-chroma"
 
@@ -141,7 +135,7 @@ def read(
     # # IDEA: Set the collection to be the user's name, then only rebuild the vector store for that user, and allow the user to search a different users stars without a rebuild
     # # IDEA: Compare the results of the existing vectorstore to the results of the GitHub API and only CRUD the files that have changed
 
-    repo_documents = utils.prepare_documents()  # FIXME: maybe this should accept k?
+    repo_documents = utils.prepare_documents()
 
     Chroma.from_documents(
         documents=repo_documents,
@@ -171,7 +165,7 @@ def shoot(
         vectorstore_path=VECTORSTORE_PATH,
         k=k,  # type: ignore
         method=method.value,  # type: ignore
-    )  # FIXME: This will break if openai embedding
+    )
 
     print(utils.create_results_table(retriever.get_relevant_documents(query)))
 
@@ -283,9 +277,7 @@ def astrologer(
 
     vectorstore = Chroma(
         persist_directory=VECTORSTORE_PATH,
-        embedding_function=OpenAIEmbeddings(
-            model="text-embedding-3-large"
-        ),  # FIXME: This will break if openai embedding
+        embedding_function=OpenAIEmbeddings(model="text-embedding-3-large"),
     )
 
     retriever = SelfQueryRetriever(
@@ -297,7 +289,5 @@ def astrologer(
     )
 
     results = retriever.invoke(query)
-
-    ic(results)
 
     print(utils.create_results_table(results))

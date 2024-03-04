@@ -1,7 +1,6 @@
 import json
 import os
 import shutil
-import token
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
@@ -21,7 +20,6 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai.embeddings import OpenAIEmbeddings
 from rich.progress import track
 from rich.table import Table
-from sqlalchemy import over
 
 try:
     from icecream import ic
@@ -285,7 +283,6 @@ def prepare_documents(
             metadata["topics"] = " ".join(topics)
         if (languages := record.get("languages")) is not None:
             metadata["languages"] = " ".join(languages)
-        # TODO: Add starcount to metadata
 
         # if any of the fields are not one of (str, bool, int, float) log a warning
         for key, value in metadata.items():
@@ -305,7 +302,7 @@ def prepare_documents(
         logger.debug("Loading document", file=file_path)
         loader = JSONLoader(
             file_path,
-            jq_schema=".",  # FIXME: This drops the other fields from metadata
+            jq_schema=".",
             content_key="content",
             metadata_func=_metadata_func,
             text_content=False,
@@ -361,9 +358,7 @@ def create_retriever(
     """
     return Chroma(
         persist_directory=vectorstore_path,
-        embedding_function=OpenAIEmbeddings(
-            model="text-embedding-3-large"
-        ),  # FIXME: This will break if openai embedding # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
+        embedding_function=OpenAIEmbeddings(model="text-embedding-3-large"),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
     ).as_retriever(
         search_type=method,
         search_kwargs={
@@ -378,11 +373,11 @@ def create_results_table(response: List[Document]) -> Table:
     """
     table = Table(title="Source Documents")
 
-    table.add_column("Repo")  # TODO: make this text a link to the repo
+    table.add_column("Repo")
     table.add_column("Description")
     table.add_column(
         "URL", no_wrap=True
-    )  # This is so the link is always clickable, truncated text in this cilumn truncates the link
+    )  # `no_wrap` is so the link is always clickable, truncated text in this column truncates the link
     table.add_column("Topic")
     table.add_column("Primary Language")
     table.add_column("Languages")
@@ -390,7 +385,9 @@ def create_results_table(response: List[Document]) -> Table:
 
     for source_document in response:
         table.add_row(
-            source_document.metadata.get("name"),
+            source_document.metadata.get(
+                "name"
+            ),  # TODO: make this text a link to the repo
             source_document.metadata.get("description"),
             source_document.metadata.get("url"),
             source_document.metadata.get("topics"),

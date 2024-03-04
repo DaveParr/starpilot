@@ -1,9 +1,9 @@
 {
     "name": "gh-i",
     "nameWithOwner": "gennaro-tedesco/gh-i",
-    "url": "https: //github.com/gennaro-tedesco/gh-i",
-    "description": "🔎 search your github issues interactively",
-    "stargazerCount": 52,
+    "url": "https://github.com/gennaro-tedesco/gh-i",
+    "description": "\ud83d\udd0e search your github issues interactively ",
+    "stargazerCount": 54,
     "primaryLanguage": "Go",
     "languages": [
         "Go"
@@ -13,5 +13,6 @@
         "gh-extension",
         "command-line",
         "go"
-    ]
+    ],
+    "content": "gh-i \ud83d\udd0e search your github issues interactively  gh-extension command-line go Go"
 }
