@@ -1,8 +1,7 @@
 import pytest
+from langchain.schema.document import Document
 
 from starpilot.utils.utils import format_repo, prepare_documents
-
-from langchain.schema.document import Document
 
 
 @pytest.fixture(scope="session")
@@ -48,6 +47,7 @@ def pytest_expectation(pytest_repo):
         "stargazerCount": 10980,
         "primaryLanguage": "Python",
         "languages": ["Python", "Gherkin"],
+        "content": "pytest The pytest framework makes it easy to write small tests, yet scales to support complex functional testing unit-testing test testing python hacktoberfest Python",
     }
 
 
@@ -80,6 +80,7 @@ def calcat_expectation(calcat_repo):
         "stargazerCount": 219,
         "primaryLanguage": "R",
         "languages": ["R", "CSS", "JavaScript"],
+        "content": "CalCAT California Communicable diseases Assessment Tool R",
     }
 
 
@@ -107,6 +108,7 @@ def the_open_book_expectation(the_open_book_repo):
         "owner": "joeycastillo",
         "url": "https://github.com/joeycastillo/The-Open-Book",
         "stargazerCount": 7265,
+        "content": "The-Open-Book",
     }
 
 
@@ -134,6 +136,7 @@ def minimal_expectation(minimal_repo):
         "owner": "fakeuser",
         "url": "https://github.com/fakeuser/fakerepo",
         "stargazerCount": 1,
+        "content": "fakerepo",
     }
 
 
@@ -179,6 +182,7 @@ def emoji_metadata_expectation():
         "stargazerCount": 52,
         "primaryLanguage": "Go",
         "languages": ["Go"],
+        "content": "gh-i 🔎 search your github issues interactively gh-extension command-line go Go",
     }
 
 
@@ -264,12 +268,10 @@ def test_prepare_document():
             assert document.metadata.get("topics") is None
             assert document.metadata.get("languages") is None
         elif document.metadata["name"] == "gh-i":
-            assert (
-                document.metadata["url"] == "https: //github.com/gennaro-tedesco/gh-i"
-            )
+            assert document.metadata["url"] == "https://github.com/gennaro-tedesco/gh-i"
             assert document.metadata["topics"] == "gh-extension command-line go"
             assert (
                 document.metadata["description"]
-                == "🔎 search your github issues interactively"
+                == "🔎 search your github issues interactively "
             )
             assert document.metadata["languages"] == "Go"

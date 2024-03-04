@@ -14,9 +14,9 @@ from langchain.chains.query_constructor.ir import Comparator
 from langchain.chains.query_constructor.schema import AttributeInfo
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 from langchain.retrievers.self_query.chroma import ChromaTranslator
-from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_openai import ChatOpenAI
+from langchain_openai.embeddings import OpenAIEmbeddings
 from rich import print
 from typing_extensions import Optional
 
@@ -30,9 +30,7 @@ try:
 except Exception:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-structlog.configure(
-    wrapper_class=structlog.make_filtering_bound_logger(logging.WARNING)
-)
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.INFO))
 logger = structlog.get_logger()
 
 
@@ -103,13 +101,14 @@ def setup(
 @app.command()
 def read(
     user: str,
-    k: Optional[int] = typer.Option(500, help="Number of repositories to load"),
+    k: Optional[int] = typer.Option(900, help="Number of repositories to load"),
 ) -> None:
     """
     Read stars from GitHub
     """
 
     GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
+    embedding_function = OpenAIEmbeddings(model="text-embedding-3-large")
 
     repos = utils.get_user_starred_repos(
         username=user,
@@ -120,7 +119,12 @@ def read(
     for repo in repos:
         formatted_repos.append(utils.format_repo(repo))
 
-    utils.save_repo_contents_to_disk(repo_contents=formatted_repos)
+    # order by stars and pick top k
+    top_k_formatted_repos = sorted(
+        formatted_repos, key=lambda x: x["stargazerCount"], reverse=True
+    )[:k]
+
+    utils.save_repo_contents_to_disk(repo_contents=top_k_formatted_repos)
 
     vectorstore_path = "./vectorstore-chroma"
 
@@ -135,7 +139,7 @@ def read(
 
     Chroma.from_documents(
         documents=repo_documents,
-        embedding=GPT4AllEmbeddings(client=None),
+        embedding=embedding_function,
         persist_directory=vectorstore_path,
     )
 
@@ -212,6 +216,11 @@ def astrologer(
             description="the url of a repository on GitHub",
             type="string",
         ),
+        AttributeInfo(
+            name="stargazerCount",
+            description="the number of stars a repository has on GitHub",
+            type="number",
+        ),
     ]
 
     document_content_description = "content describing a repository on GitHub"
@@ -233,26 +242,33 @@ def astrologer(
                 "Python machine learning repos",
                 {
                     "query": "machine learning",
-                    "filter": 'eq("languages", "python")',
+                    "filter": 'eq("primaryLanguage", "Python")',
                 },
             ),
             (
                 "Rust Dataframe crates",
-                {"query": "data frame", "filter": 'eq("languages", "rust")'},
+                {"query": "data frame", "filter": 'eq("primaryLanguage", "Rust")'},
             ),
             (
                 "What R packages do time series analysis",
-                {"query": "time series", "filter": 'eq("languages", "R")'},
+                {"query": "time series", "filter": 'eq("primaryLanguage", "R")'},
+            ),
+            (
+                "data frame packages with 100 stars or more",
+                {
+                    "query": "data frame",
+                    "filter": 'gte("stargazerCount", 100)',
+                },
             ),
         ],
-        # allowed_comparators=[
-        #     Comparator.EQ,
-        #     Comparator.NE,
-        #     Comparator.GT,
-        #     Comparator.GTE,
-        #     Comparator.LT,
-        #     Comparator.LTE,
-        # ],
+        allowed_comparators=[
+            Comparator.EQ,
+            Comparator.NE,
+            Comparator.GT,
+            Comparator.GTE,
+            Comparator.LT,
+            Comparator.LTE,
+        ],
     )
 
     output_parser = StructuredQueryOutputParser.from_components()
@@ -261,7 +277,7 @@ def astrologer(
 
     vectorstore = Chroma(
         persist_directory=VECTORSTORE_PATH,
-        embedding_function=GPT4AllEmbeddings(client=None),
+        embedding_function=OpenAIEmbeddings(model="text-embedding-3-large"),
     )
 
     retriever = SelfQueryRetriever(
@@ -269,6 +285,7 @@ def astrologer(
         vectorstore=vectorstore,
         structured_query_translator=ChromaTranslator(),
         search_kwargs={"k": k},
+        verbose=True,
     )
 
     results = retriever.invoke(query)

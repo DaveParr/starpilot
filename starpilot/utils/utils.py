@@ -16,8 +16,8 @@ from graphql_query import (
 from langchain.schema.document import Document
 from langchain.vectorstores.utils import filter_complex_metadata
 from langchain_community.document_loaders import JSONLoader
-from langchain_community.embeddings import GPT4AllEmbeddings
 from langchain_community.vectorstores import Chroma
+from langchain_openai.embeddings import OpenAIEmbeddings
 from rich.progress import track
 from rich.table import Table
 
@@ -174,8 +174,6 @@ def get_user_starred_repos(username: str, github_api_key: str) -> List:
             user=username, github_api_key=github_api_key, after_cursor=after_cursor
         )
 
-        ic(result)
-
         all_results.append(result)
 
         if after_cursor is None:
@@ -209,6 +207,25 @@ def format_repo(repo: Dict) -> Dict:
         "topics": [
             topic["topic"]["name"] for topic in repo["repositoryTopics"]["nodes"]
         ],
+        # join name, description, topics if they are not none
+        "content": " ".join(
+            filter(
+                None,
+                [
+                    repo["name"],
+                    repo["description"],
+                    " ".join(
+                        [
+                            topic["topic"]["name"]
+                            for topic in repo["repositoryTopics"]["nodes"]
+                        ]
+                    ),
+                    repo["primaryLanguage"]["name"]
+                    if repo["primaryLanguage"]
+                    else None,
+                ],
+            )
+        ),
     }
 
     # remove keys with None, empty values, or empty strings
@@ -248,6 +265,8 @@ def prepare_documents(
     """
     Prepare the documents for ingestion into the vectorstore
     """
+    import tiktoken
+
     file_paths = []
     for file in os.listdir(repo_contents_dir):
         file_paths.append(os.path.join(repo_contents_dir, file))
@@ -255,6 +274,9 @@ def prepare_documents(
     def _metadata_func(record: dict, metadata: dict) -> dict:
         metadata["url"] = record.get("url")
         metadata["name"] = record.get("name")
+        metadata["stargazerCount"] = record["stargazerCount"]
+        if (primary_language := record.get("primaryLanguage")) is not None:
+            metadata["primaryLanguage"] = primary_language
         if (description := record.get("description")) is not None:
             metadata["description"] = description
         if (topics := record.get("topics")) is not None:
@@ -275,21 +297,41 @@ def prepare_documents(
 
         return metadata
 
-    # /home/dave/.cache/pypoetry/virtualenvs/starpilot-OKleAcjU-py3.10/lib/python3.10/site-packages/langchain/vectorstores/chroma.py:309 in add_texts
-    # ValueError: Expected metadata value to be a str, int, float or bool, got None which is a <class 'NoneType'>
-
-    # Try filtering complex metadata from the document using langchain.vectorstores.utils.filter_complex_metadata.
     documents = []
     for file_path in track(file_paths, description="Loading documents..."):
         logger.debug("Loading document", file=file_path)
         loader = JSONLoader(
             file_path,
             jq_schema=".",
+            content_key="content",
             metadata_func=_metadata_func,
             text_content=False,
         )
-        if (loaded := loader.load())[0].page_content != "":
-            documents.extend(loaded)
+        if (loaded_document := loader.load())[0].page_content != "":
+            documents.extend(loaded_document)
+
+    def _num_tokens_from_string(string: str, encoding_name: str) -> int:
+        """Returns the number of tokens in a text string."""
+        encoding = tiktoken.get_encoding(encoding_name)
+        num_tokens = len(encoding.encode(string))
+        return num_tokens
+
+    # calculate the sum total tokens for the content of each document
+
+    token_lengths = []
+    for document in documents:
+        token_lengths.append(
+            _num_tokens_from_string(document.page_content, "cl100k_base")
+        )
+
+    price_per_million_tokens = 0.13
+
+    logger.info(
+        "Token lengths",
+        total_tokens=sum(token_lengths),
+        mean_tokens=sum(token_lengths) / len(token_lengths),
+        total_cost=sum(token_lengths) * price_per_million_tokens / 1e6,
+    )
 
     documents = filter_complex_metadata(documents)
 
@@ -316,7 +358,7 @@ def create_retriever(
     """
     return Chroma(
         persist_directory=vectorstore_path,
-        embedding_function=GPT4AllEmbeddings(),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
+        embedding_function=OpenAIEmbeddings(model="text-embedding-3-large"),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
     ).as_retriever(
         search_type=method,
         search_kwargs={
@@ -333,17 +375,25 @@ def create_results_table(response: List[Document]) -> Table:
 
     table.add_column("Repo")
     table.add_column("Description")
-    table.add_column("URL")
+    table.add_column(
+        "URL", no_wrap=True
+    )  # `no_wrap` is so the link is always clickable, truncated text in this column truncates the link
     table.add_column("Topic")
-    table.add_column("Language")
+    table.add_column("Primary Language")
+    table.add_column("Languages")
+    table.add_column("Star Count")
 
     for source_document in response:
         table.add_row(
-            source_document.metadata.get("name"),
+            source_document.metadata.get(
+                "name"
+            ),  # TODO: make this text a link to the repo
             source_document.metadata.get("description"),
             source_document.metadata.get("url"),
             source_document.metadata.get("topics"),
+            source_document.metadata.get("primaryLanguage"),
             source_document.metadata.get("languages"),
+            str(source_document.metadata.get("stargazerCount")),
         )
 
     return table
