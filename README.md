@@ -57,7 +57,7 @@ pip install git+https://github.com/DaveParr/starpilot --user
 To install the latest tagged release (potentially the more stable approach) from GitHub run:
 
 ``` bash
-pip install git+https://github.com/DaveParr/starpilot.git@v.0.1.0 --user
+pip install git+https://github.com/DaveParr/starpilot.git@v0.1.4 --user
 ```
 
 
