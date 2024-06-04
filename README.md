@@ -6,9 +6,9 @@ However I never really went back to them.
 
 > Starpilot helps this problem by allowing you to rediscover GitHub repos you had previously starred that are relevant to your current project. 
 
-> Starpilot is a retrival augmented generation CLI tool for rediscovering your GitHub stars. 
+> Starpilot is a retrieval augmented generation CLI tool for rediscovering your GitHub stars. 
 
-> Starpilot uses Large Lanugage Models to query your GitHub stars and return the most relevant repos to your query.
+> Starpilot uses Large Language Models to query your GitHub stars and return the most relevant repos to your query.
 
 
 ```sh
@@ -40,6 +40,8 @@ However I never really went back to them.
 ```
 
 [Here's some more details about the motivation for and state of the project](https://dev.to/daveparr/copilot-for-your-github-stars-1cep).
+
+[Here is a talk I gave about the project](https://daveparr.quarto.pub/starpilot/)
 
 ### Installation
 
@@ -79,182 +81,129 @@ You may potentially need [Pandoc installed](https://pandoc.org/installing.html) 
 
 ### Usage
 
-[![asciicast](https://asciinema.org/a/626456.svg)](https://asciinema.org/a/626456)
+### `shoot` for simple semantic search
+
+[![asciicast](https://asciinema.org/a/661841.svg)](https://asciinema.org/a/661841)
+
+### `astrologer` for more complex self querying
+
+[![asciicast](https://asciinema.org/a/UvFTn7EMZoUVC8eMbWU59mNyc.svg)](https://asciinema.org/a/UvFTn7EMZoUVC8eMbWU59mNyc)
 
 ### Commands
 
-``` bash
+```sh
 ❯ starpilot --help
-                                                                                                                 
- Usage: starpilot [OPTIONS] COMMAND [ARGS]...                                                                    
-                                                                                                                 
-╭─ Options ─────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ --install-completion          Install completion for the current shell.                                       │
-│ --show-completion             Show completion for the current shell, to copy it or customize the              │
-│                               installation.                                                                   │
-│ --help                        Show this message and exit.                                                     │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ────────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ astrologer          Use SelfQueryRetriever to self-query the vectorstore                                      │
-│ read                Read stars from GitHub                                                                    │
-│ setup               Setup the CLI with the required API keys                                                  │
-│ shoot               Shoot a query at the stars                                                                │
-╰───────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+                                                                                                                              
+ Usage: starpilot [OPTIONS] COMMAND [ARGS]...                                                                                 
+                                                                                                                              
+╭─ Options ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ --install-completion          Install completion for the current shell.                                                    │
+│ --show-completion             Show completion for the current shell, to copy it or customize the installation.             │
+│ --help                        Show this message and exit.                                                                  │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ astrologer   A self-query of the vectorstore that allows the user to search for a repo while filtering by attributes       │
+│ read         Read stars from GitHub                                                                                        │
+│ setup        Setup the CLI with the required API keys                                                                      │
+│ shoot        An embedding search of the vectorstore                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ### More examples
 
 ```sh
 ❯ starpilot astrologer "How do I use dataframes?"
-                                                   Source Documents                                                    
-┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Repo    ┃ Description              ┃ URL                      ┃ Topic                    ┃ Language                 ┃
-┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ pandas  │ Flexible and powerful    │ https://github.com/pand… │ data-analysis pandas     │ Python Cython HTML C     │
-│         │ data analysis /          │                          │ flexible alignment       │ Shell Meson Smarty CSS   │
-│         │ manipulation library for │                          │ python data-science      │ Dockerfile XSLT          │
-│         │ Python, providing        │                          │                          │                          │
-│         │ labeled data structures  │                          │                          │                          │
-│         │ similar to R data.frame  │                          │                          │                          │
-│         │ objects, statistical     │                          │                          │                          │
-│         │ functions, and much more │                          │                          │                          │
-│ polars  │ Dataframes powered by a  │ https://github.com/pola… │ dataframe-library        │ Rust Python Makefile R   │
-│         │ multithreaded,           │                          │ dataframe dataframes     │ CSS                      │
-│         │ vectorized query engine, │                          │ rust arrow python        │                          │
-│         │ written in Rust          │                          │ out-of-core polars       │                          │
-│ pandera │ A light-weight,          │ https://github.com/unio… │ pandas validation schema │ Python Makefile          │
-│         │ flexible, and expressive │                          │ dataframes testing       │                          │
-│         │ statistical data testing │                          │ pandas-validation        │                          │
-│         │ library                  │                          │ pandas-dataframe         │                          │
-│         │                          │                          │ data-validation          │                          │
-│         │                          │                          │ data-cleaning data-check │                          │
-│         │                          │                          │ testing-tools assertions │                          │
-│         │                          │                          │ data-assertions          │                          │
-│         │                          │                          │ data-verification        │                          │
-│         │                          │                          │ dataframe-schema         │                          │
-│         │                          │                          │ hypothesis-testing       │                          │
-│         │                          │                          │ pandas-validator         │                          │
-│         │                          │                          │ data-processing          │                          │
-│ koalas  │ Koalas: pandas API on    │ https://github.com/data… │ spark pandas pydata      │ Python Shell             │
-│         │ Apache Spark             │                          │ dataframe mlflow         │                          │
-│         │                          │                          │ big-data data-science    │                          │
-└─────────┴──────────────────────────┴──────────────────────────┴──────────────────────────┴──────────────────────────┘
-
+                                                                               Source Documents                                                                                
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Repo       ┃ Description                ┃ URL                                      ┃ Topic                     ┃ Primary Language ┃ Languages                  ┃ Star Count ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ data.table │ R's data.table package     │ https://github.com/Rdatatable/data.table │                           │ R                │ R C Batchfile Shell        │ 3451       │
+│            │ extends data.frame:        │                                          │                           │                  │ Makefile C++ CSS           │            │
+│            │                            │                                          │                           │                  │ Dockerfile                 │            │
+│ tibble     │ A modern re-imagining of   │ https://github.com/tidyverse/tibble      │ r tidy-data               │ R                │ R C Mermaid                │ 641        │
+│            │ the data frame             │                                          │                           │                  │                            │            │
+│ pandas     │ Flexible and powerful data │ https://github.com/pandas-dev/pandas     │ data-analysis pandas      │ Python           │ Python Shell HTML C Smarty │ 41377      │
+│            │ analysis / manipulation    │                                          │ flexible alignment python │                  │ CSS Dockerfile XSLT Cython │            │
+│            │ library for Python,        │                                          │ data-science              │                  │ Meson                      │            │
+│            │ providing labeled data     │                                          │                           │                  │                            │            │
+│            │ structures similar to R    │                                          │                           │                  │                            │            │
+│            │ data.frame objects,        │                                          │                           │                  │                            │            │
+│            │ statistical functions, and │                                          │                           │                  │                            │            │
+│            │ much more                  │                                          │                           │                  │                            │            │
+└────────────┴────────────────────────────┴──────────────────────────────────────────┴───────────────────────────┴──────────────────┴────────────────────────────┴────────────┘
 ```
 
 ```sh
 ❯ starpilot astrologer "How do I use dataframes in Rust?"
-                                                   Source Documents                                                    
-┏━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Repo   ┃ Description              ┃ URL                      ┃ Topic                     ┃ Language                 ┃
-┡━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ polars │ Dataframes powered by a  │ https://github.com/pola… │ dataframe-library         │ Rust Python Makefile R   │
-│        │ multithreaded,           │                          │ dataframe dataframes rust │ CSS                      │
-│        │ vectorized query engine, │                          │ arrow python out-of-core  │                          │
-│        │ written in Rust          │                          │ polars                    │                          │
-│ lance  │ Modern columnar data     │ https://github.com/lanc… │ machine-learning          │ Rust Python Jupyter      │
-│        │ format for ML and LLMs   │                          │ computer-vision           │ Notebook C Shell CMake   │
-│        │ implemented in Rust.     │                          │ data-format deep-learning │ C++ Makefile Dockerfile  │
-│        │ Convert from parquet in  │                          │ python apache-arrow       │                          │
-│        │ 2 lines of code for 100x │                          │ duckdb mlops              │                          │
-│        │ faster random access,    │                          │ data-analysis             │                          │
-│        │ vector index, and data   │                          │ data-analytics            │                          │
-│        │ versioning. Compatible   │                          │ data-science dataops      │                          │
-│        │ with Pandas, DuckDB,     │                          │ data-centric embeddings   │                          │
-│        │ Polars, Pyarrow, with    │                          │ rust llms                 │                          │
-│        │ more integrations        │                          │                           │                          │
-│        │ coming..                 │                          │                           │                          │
-│ linfa  │ A Rust machine learning  │ https://github.com/rust… │ machine-learning rust     │ Rust Python Gnuplot      │
-│        │ framework.               │                          │ algorithms                │                          │
-│        │                          │                          │ scientific-computing      │                          │
-│ burn   │ Burn is a new            │ https://github.com/trac… │ autodiff deep-learning    │ Rust WGSL Python Shell   │
-│        │ comprehensive dynamic    │                          │ machine-learning rust     │ PowerShell               │
-│        │ Deep Learning Framework  │                          │ scientific-computing      │                          │
-│        │ built using Rust with    │                          │ ndarray tensor            │                          │
-│        │ extreme flexibility,     │                          │ neural-network pytorch    │                          │
-│        │ compute efficiency and   │                          │ autotune concurrency      │                          │
-│        │ portability as its       │                          │ cross-platform            │                          │
-│        │ primary goals.           │                          │ high-performance          │                          │
-│        │                          │                          │ kernel-fusion llm onnx    │                          │
-│        │                          │                          │ wasm webgpu               │                          │
-└────────┴──────────────────────────┴──────────────────────────┴───────────────────────────┴──────────────────────────┘
-
+                                                                               Source Documents                                                                                
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Repo      ┃ Description                 ┃ URL                                    ┃ Topic                      ┃ Primary Language ┃ Languages                   ┃ Star Count ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ polars    │ Dataframes powered by a     │ https://github.com/pola-rs/polars      │ dataframe-library          │ Rust             │ Rust Python Makefile R CSS  │ 24592      │
+│           │ multithreaded, vectorized   │                                        │ dataframe dataframes rust  │                  │                             │            │
+│           │ query engine, written in    │                                        │ arrow python out-of-core   │                  │                             │            │
+│           │ Rust                        │                                        │ polars                     │                  │                             │            │
+│ weld      │ High-performance runtime    │ https://github.com/weld-project/weld   │ stanford data analytics    │ Rust             │ Rust Makefile C++ Python C  │ 2980       │
+│           │ for data analytics          │                                        │ machine-learning           │                  │ Shell Batchfile             │            │
+│           │ applications                │                                        │ code-generation            │                  │                             │            │
+│           │                             │                                        │ performance rust llvm      │                  │                             │            │
+│           │                             │                                        │ pandas                     │                  │                             │            │
+│ polars-ai │ 💬 Chat with your Polars    │ https://github.com/wiseaidev/polars-ai │ cli dataframe evcxr        │ Rust             │ Rust                        │ 3          │
+│           │ DataFrame from your CLI and │                                        │ jupyter openai polars rust │                  │                             │            │
+│           │ your app! (WIP)             │                                        │ polars-ai                  │                  │                             │            │
+└───────────┴─────────────────────────────┴────────────────────────────────────────┴────────────────────────────┴──────────────────┴─────────────────────────────┴────────────┘
 ```
 
 ```sh
-❯ starpilot astrologer "How do I use dataframes with R?"
-                                                   Source Documents                                                    
-┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Repo       ┃ Description             ┃ URL                     ┃ Topic                    ┃ Language                ┃
-┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ pandas     │ Flexible and powerful   │ https://github.com/pan… │ data-analysis pandas     │ Python Cython HTML C    │
-│            │ data analysis /         │                         │ flexible alignment       │ Shell Meson Smarty CSS  │
-│            │ manipulation library    │                         │ python data-science      │ Dockerfile XSLT         │
-│            │ for Python, providing   │                         │                          │                         │
-│            │ labeled data structures │                         │                          │                         │
-│            │ similar to R data.frame │                         │                          │                         │
-│            │ objects, statistical    │                         │                          │                         │
-│            │ functions, and much     │                         │                          │                         │
-│            │ more                    │                         │                          │                         │
-│ tibble     │ A modern re-imagining   │ https://github.com/tid… │ r tidy-data              │ R C Mermaid             │
-│            │ of the data frame       │                         │                          │                         │
-│ ggplot2    │ An implementation of    │ https://github.com/tid… │ r visualisation          │ R                       │
-│            │ the Grammar of Graphics │                         │ data-visualisation       │                         │
-│            │ in R                    │                         │                          │                         │
-│ data.table │ R's data.table package  │ https://github.com/Rda… │                          │ R C Batchfile Shell C++ │
-│            │ extends data.frame:     │                         │                          │ Makefile Dockerfile CSS │
-└────────────┴─────────────────────────┴─────────────────────────┴──────────────────────────┴─────────────────────────┘
-
+❯ starpilot astrologer "Suggest dataframe packages on CRAN"
+                                                                               Source Documents                                                                                
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Repo       ┃ Description                       ┃ URL                                      ┃ Topic       ┃ Primary Language ┃ Languages                         ┃ Star Count ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ tibble     │ A modern re-imagining of the data │ https://github.com/tidyverse/tibble      │ r tidy-data │ R                │ R C Mermaid                       │ 641        │
+│            │ frame                             │                                          │             │                  │                                   │            │
+│ data.table │ R's data.table package extends    │ https://github.com/Rdatatable/data.table │             │ R                │ R C Batchfile Shell Makefile C++  │ 3451       │
+│            │ data.frame:                       │                                          │             │                  │ CSS Dockerfile                    │            │
+│ broom      │ Convert statistical analysis      │ https://github.com/dgrtwo/broom          │             │ R                │ R                                 │ 19         │
+│            │ objects from R into tidy format   │                                          │             │                  │                                   │            │
+└────────────┴───────────────────────────────────┴──────────────────────────────────────────┴─────────────┴──────────────────┴───────────────────────────────────┴────────────┘
 ```
 
 ``` sh
 ❯ starpilot astrologer "test api python"
-bert_load_from_file: gguf version     = 2
-bert_load_from_file: gguf alignment   = 32
-bert_load_from_file: gguf data offset = 695552
-bert_load_from_file: model name           = BERT
-bert_load_from_file: model architecture   = bert
-bert_load_from_file: model file type      = 1
-bert_load_from_file: bert tokenizer vocab = 30522
-                                                   Source Documents                                                    
-┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ Repo          ┃ Description             ┃ URL                     ┃ Topic                   ┃ Language              ┃
-┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
-│ pytest        │ The pytest framework    │ https://github.com/pyt… │ unit-testing test       │ Python Gherkin        │
-│               │ makes it easy to write  │                         │ testing python          │                       │
-│               │ small tests, yet scales │                         │ hacktoberfest           │                       │
-│               │ to support complex      │                         │                         │                       │
-│               │ functional testing      │                         │                         │                       │
-│ responses     │ A utility for mocking   │ https://github.com/get… │ tag-production          │ Python Shell Makefile │
-│               │ out the Python Requests │                         │                         │                       │
-│               │ library.                │                         │                         │                       │
-│ vcrpy         │ Automatically mock your │ https://github.com/kev… │ testing python http     │ Python Shell          │
-│               │ HTTP interactions to    │                         │ mocking                 │                       │
-│               │ simplify and speed up   │                         │                         │                       │
-│               │ testing                 │                         │                         │                       │
-│ squidgy-testy │ A unit test framework   │ https://github.com/squ… │                         │ Python                │
-│               │ for prompts.            │                         │                         │                       │
-└───────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴───────────────────────┘       
+                                                                               Source Documents                                                                                
+┏━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Repo      ┃ Description                 ┃ URL                                    ┃ Topic                      ┃ Primary Language ┃ Languages                   ┃ Star Count ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ responses │ A utility for mocking out   │ https://github.com/getsentry/responses │ tag-production             │ Python           │ Makefile Python Shell       │ 4018       │
+│           │ the Python Requests         │                                        │                            │                  │                             │            │
+│           │ library.                    │                                        │                            │                  │                             │            │
+│ pytest    │ The pytest framework makes  │ https://github.com/pytest-dev/pytest   │ unit-testing test testing  │ Python           │ Python Gherkin              │ 11164      │
+│           │ it easy to write small      │                                        │ python hacktoberfest       │                  │                             │            │
+│           │ tests, yet scales to        │                                        │                            │                  │                             │            │
+│           │ support complex functional  │                                        │                            │                  │                             │            │
+│           │ testing                     │                                        │                            │                  │                             │            │
+│ pokeapi   │ The Pokémon API             │ https://github.com/PokeAPI/pokeapi     │ beginner-friendly api      │ Python           │ Python Makefile Dockerfile  │ 3881       │
+│           │                             │                                        │ pokemon pokeapi graphql    │                  │ Shell JavaScript Go         │            │
+│           │                             │                                        │ hacktoberfest              │                  │                             │            │
+└───────────┴─────────────────────────────┴────────────────────────────────────────┴────────────────────────────┴──────────────────┴─────────────────────────────┴────────────┘
 ```
 
 ```sh
 ❯ starpilot astrologer "How do I manipulate dates and times in R?"
-                                                   Source Documents                                                    
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
-┃ Repo                     ┃ Description              ┃ URL                      ┃ Topic                   ┃ Language ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
-│ seer                     │ 📈 Feature-based         │ https://github.com/thiy… │                         │ R        │
-│                          │ Forecast Model Selection │                          │                         │          │
-│                          │ (FFORMS) 🕐 🕜 🕙 🕥 🕚  │                          │                         │          │
-│                          │ 🕦 🕛 🕧 🕑 🕝 🕒 🕞 🕓  │                          │                         │          │
-│                          │ 🕟 🕔 🕠 🕕 🕡 🕖 🕢 🕗  │                          │                         │          │
-│                          │ 🕣 🕘 🕤                 │                          │                         │          │
-│ EventsVis                │ A tool for analyzing and │ https://github.com/micr… │ time-series-analysis    │ R        │
-│                          │ visualizing discrete     │                          │ visualization r shiny   │          │
-│                          │ temporal events          │                          │                         │          │
-│ Hands-On-Time-Series-An… │ Hands-On-Time-Series-An… │ https://github.com/Pack… │                         │ R        │
-│ CausalImpact             │ An R package for causal  │ https://github.com/goog… │                         │ R        │
-│                          │ inference in time series │                          │                         │          │
-└──────────────────────────┴──────────────────────────┴──────────────────────────┴─────────────────────────┴──────────┘
-
+                                                                               Source Documents                                                                                
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃                ┃                ┃                                                                         ┃                 ┃ Primary        ┃                 ┃            ┃
+┃ Repo           ┃ Description    ┃ URL                                                                     ┃ Topic           ┃ Language       ┃ Languages       ┃ Star Count ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ lubridate      │ Make working   │ https://github.com/tidyverse/lubridate                                  │ r date-time     │ R              │ Emacs Lisp R    │ 712        │
+│                │ with dates in  │                                                                         │ date            │                │ TeX C Shell CSS │            │
+│                │ R just that    │                                                                         │                 │                │ Makefile        │            │
+│                │ little bit     │                                                                         │                 │                │                 │            │
+│                │ easier         │                                                                         │                 │                │                 │            │
+│ Hands-On-Time… │ Hands-On-Time… │ https://github.com/PacktPublishing/Hands-On-Time-Series-Analysis-with-R │                 │ R              │ R               │ 102        │
+│ fable          │ Tidy time      │ https://github.com/tidyverts/fable                                      │ forecasting     │ R              │ R C++ C         │ 539        │
+│                │ series         │                                                                         │                 │                │                 │            │
+│                │ forecasting    │                                                                         │                 │                │                 │            │
+└────────────────┴────────────────┴─────────────────────────────────────────────────────────────────────────┴─────────────────┴────────────────┴─────────────────┴────────────┘
 ```
