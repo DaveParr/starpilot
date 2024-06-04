@@ -4,6 +4,7 @@ import shutil
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
+import tiktoken
 import structlog
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
@@ -20,6 +21,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai.embeddings import OpenAIEmbeddings
 from rich.progress import track
 from rich.table import Table
+
 
 try:
     from icecream import ic
@@ -199,9 +201,9 @@ def format_repo(repo: Dict) -> Dict:
         "homepageUrl": repo["homepageUrl"],
         "description": repo["description"],
         "stargazerCount": repo["stargazerCount"],
-        "primaryLanguage": repo["primaryLanguage"]["name"]
-        if repo["primaryLanguage"]
-        else None,
+        "primaryLanguage": (
+            repo["primaryLanguage"]["name"] if repo["primaryLanguage"] else None
+        ),
         "languages": [language["name"] for language in repo["languages"]["nodes"]],
         "owner": repo["owner"]["login"],
         "topics": [
@@ -220,9 +222,11 @@ def format_repo(repo: Dict) -> Dict:
                             for topic in repo["repositoryTopics"]["nodes"]
                         ]
                     ),
-                    repo["primaryLanguage"]["name"]
-                    if repo["primaryLanguage"]
-                    else None,
+                    (
+                        repo["primaryLanguage"]["name"]
+                        if repo["primaryLanguage"]
+                        else None
+                    ),
                 ],
             )
         ),
@@ -265,7 +269,6 @@ def prepare_documents(
     """
     Prepare the documents for ingestion into the vectorstore
     """
-    import tiktoken
 
     file_paths = []
     for file in os.listdir(repo_contents_dir):
@@ -358,7 +361,9 @@ def create_retriever(
     """
     return Chroma(
         persist_directory=vectorstore_path,
-        embedding_function=OpenAIEmbeddings(model="text-embedding-3-large"),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
+        embedding_function=OpenAIEmbeddings(
+            model="text-embedding-3-large"
+        ),  # type:ignore  # Tried to find a way to suppress the model card from being printed, failed: https://github.com/langchain-ai/langchain/discussions/13663 # type: ignore
     ).as_retriever(
         search_type=method,
         search_kwargs={

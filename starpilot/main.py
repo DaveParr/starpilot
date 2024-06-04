@@ -151,7 +151,7 @@ def shoot(
         "similarity", help="The search method to use"
     ),
     k: Optional[int] = typer.Option(
-        15, help="Number of results to fetch from the vectorstore"
+        3, help="Number of results to fetch from the vectorstore"
     ),
 ):
     """
@@ -174,7 +174,7 @@ def shoot(
 def astrologer(
     query: str,
     k: Optional[int] = typer.Option(
-        4, help="Number of results to fetch from the vectorstore"
+        3, help="Number of results to fetch from the vectorstore"
     ),
 ):
     """
@@ -195,7 +195,7 @@ def astrologer(
     OPENAI_ORG_ID = os.environ["OPENAI_ORG_ID"]
 
     metadata_field_info = [
-        # IDEA: create valid specific values on data load for each users content
+        # IDEA: create valid specific example values on data load for each users content
         AttributeInfo(
             name="languages",
             description="the programming languages of a repo. Example: ['python', 'R', 'Rust']",
@@ -246,12 +246,45 @@ def astrologer(
                 },
             ),
             (
-                "Rust Dataframe crates",
+                "Dataframe crates",
                 {"query": "data frame", "filter": 'eq("primaryLanguage", "Rust")'},
+            ),
+            (
+                "Web server gems",
+                {"query": "web server", "filter": 'eq("primaryLanguage", "Ruby")'},
+            ),
+            (
+                "date parsing npm packages",
+                {
+                    "query": "date parsing",
+                    "filter": 'eq("primaryLanguage", "JavaScript")',
+                },
             ),
             (
                 "What R packages do time series analysis",
                 {"query": "time series", "filter": 'eq("primaryLanguage", "R")'},
+            ),
+            (
+                "draw a graph of data in Python",
+                {"query": "graph", "filter": 'eq("primaryLanguage", "Python")'},
+            ),
+            (
+                "web app with R",
+                {"query": "web app", "filter": 'eq("primaryLanguage", "R")'},
+            ),
+            (
+                "functional programming CRAN",
+                {
+                    "query": "functional programming",
+                    "filter": 'eq("primaryLanguage", "R")',
+                },
+            ),
+            (
+                "data frame packages with 100 stars or more",
+                {
+                    "query": "data frame",
+                    "filter": 'gte("stargazerCount", 100)',
+                },
             ),
             (
                 "data frame packages with 100 stars or more",
